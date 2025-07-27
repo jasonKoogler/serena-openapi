@@ -554,6 +554,9 @@ class OpenApiCommands(AutoRegisteringGroup):
     @click.option("--path-filter", type=str, default=None, help="Filter by path pattern (supports regex)")
     @click.option("--tags", multiple=True, help="Filter by tags (can specify multiple)")
     @click.option(
+        "--section", type=click.Choice(["operations", "webhooks", "security_schemes"]), default=None, help="Filter by API section type"
+    )
+    @click.option(
         "--log-level",
         type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
         default="WARNING",
@@ -569,6 +572,7 @@ class OpenApiCommands(AutoRegisteringGroup):
         method: str | None,
         path_filter: str | None,
         tags: tuple[str, ...],
+        section: str | None,
         log_level: str,
     ) -> None:
         """Search OpenAPI specification using natural language."""
@@ -662,6 +666,7 @@ class OpenApiCommands(AutoRegisteringGroup):
                 method_filter=method,
                 path_filter=path_filter,
                 tags_filter=tags_list,
+                section_filter=section,
             )
 
             # Display results
@@ -759,6 +764,9 @@ class OpenApiCommands(AutoRegisteringGroup):
     @click.option("--path-filter", type=str, default=None, help="Filter by path pattern (supports regex)")
     @click.option("--tags", multiple=True, help="Filter by tags (can specify multiple)")
     @click.option(
+        "--section", type=click.Choice(["operations", "webhooks", "security_schemes"]), default=None, help="Filter by API section type"
+    )
+    @click.option(
         "--log-level",
         type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
         default="WARNING",
@@ -773,6 +781,7 @@ class OpenApiCommands(AutoRegisteringGroup):
         method: str | None,
         path_filter: str | None,
         tags: tuple[str, ...],
+        section: str | None,
         log_level: str,
     ) -> None:
         """Search across all OpenAPI specifications in the project."""
@@ -835,6 +844,7 @@ class OpenApiCommands(AutoRegisteringGroup):
                 method_filter=method,
                 path_filter=path_filter,
                 tags_filter=tags_list,
+                section_filter=section,
             )
 
             # Display results

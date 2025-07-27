@@ -1,0 +1,235 @@
+openapi: 3.1.1
+info:
+  title: Meridian User API
+  description: API for user management operations
+  version: 1.0.0
+  license:
+    name: Meridian
+    url: https://meridain.kromacorp.com
+servers:
+  - url: https://api.meridain.kromacorp.com
+    description: Production server
+  - url: https://api.meridain.kromacorp.com/staging
+    description: Staging server
+tags:
+  - name: Users
+    description: User management operations
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  # Core User CRUD Operations
+  /org/{organizationId}/users:
+    $ref: './paths/users.yaml#/UserCollection'
+  
+  /org/{organizationId}/users/{userId}:
+    $ref: './paths/users.yaml#/UserResource'
+  
+  # User Profile Operations
+  /org/{organizationId}/users/{userId}/profile:
+    $ref: './paths/users.yaml#/UserProfile'
+  
+  # User Preferences Operations
+  /org/{organizationId}/users/{userId}/preferences:
+    $ref: './paths/users.yaml#/UserPreferences'
+  
+  # User Analytics Operations
+  /org/{organizationId}/users/analytics:
+    $ref: './paths/users.yaml#/UserAnalytics'
+  
+  # User Export Operations
+  /org/{organizationId}/users/export:
+    $ref: './paths/users.yaml#/UserExport'
+  
+  # User Activity Timeline
+  /org/{organizationId}/users/{userId}/activity:
+    $ref: './paths/users.yaml#/UserActivityTimeline'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    # Path Parameters
+    organizationId:
+      $ref: './components/parameters.yaml#/organizationId'
+    userId:
+      $ref: './components/parameters.yaml#/userId'
+
+    # Pagination Parameters
+    page:
+      $ref: './components/parameters.yaml#/page'
+    limit:
+      $ref: './components/parameters.yaml#/limit'
+
+    # Sorting Parameters
+    sortBy:
+      $ref: './components/parameters.yaml#/sortBy'
+    sortOrder:
+      $ref: './components/parameters.yaml#/sortOrder'
+
+    # Search and Filtering Parameters
+    search:
+      $ref: './components/parameters.yaml#/search'
+    role:
+      $ref: './components/parameters.yaml#/role'
+    status:
+      $ref: './components/parameters.yaml#/status'
+    department:
+      $ref: './components/parameters.yaml#/department'
+
+    # Date Filtering Parameters
+    lastLoginAfter:
+      $ref: './components/parameters.yaml#/lastLoginAfter'
+    createdAfter:
+      $ref: './components/parameters.yaml#/createdAfter'
+    createdBefore:
+      $ref: './components/parameters.yaml#/createdBefore'
+
+    # Inclusion Parameters
+    includeProfile:
+      $ref: './components/parameters.yaml#/includeProfile'
+    includePermissions:
+      $ref: './components/parameters.yaml#/includePermissions'
+    includeActivity:
+      $ref: './components/parameters.yaml#/includeActivity'
+    includePreferences:
+      $ref: './components/parameters.yaml#/includePreferences'
+
+    # Bulk Operation Parameters
+    hardDelete:
+      $ref: './components/parameters.yaml#/hardDelete'
+    force:
+      $ref: './components/parameters.yaml#/force'
+
+    # Export Parameters
+    format:
+      $ref: './components/parameters.yaml#/format'
+    includeFields:
+      $ref: './components/parameters.yaml#/includeFields'
+
+  schemas:
+    # Enum Types
+    UserRoles:
+      $ref: './components/schemas.yaml#/UserRoles'
+    UserStatus:
+      $ref: './components/schemas.yaml#/UserStatus'
+    ThemeType:
+      $ref: './components/schemas.yaml#/ThemeType'
+    TimeFormat:
+      $ref: './components/schemas.yaml#/TimeFormat'
+    DigestFrequency:
+      $ref: './components/schemas.yaml#/DigestFrequency'
+
+    # Core Entities
+    User:
+      $ref: './components/schemas.yaml#/User'
+    UserCreateRequest:
+      $ref: './components/schemas.yaml#/UserCreateRequest'
+    UserUpdateRequest:
+      $ref: './components/schemas.yaml#/UserUpdateRequest'
+
+    # Response Objects
+    UserResponse:
+      $ref: './components/schemas.yaml#/UserResponse'
+    UserList:
+      $ref: './components/schemas.yaml#/UserList'
+    UserListSummary:
+      $ref: './components/schemas.yaml#/UserListSummary'
+
+    # Profile Objects
+    UserProfile:
+      $ref: './components/schemas.yaml#/UserProfile'
+    UserProfileUpdateRequest:
+      $ref: './components/schemas.yaml#/UserProfileUpdateRequest'
+    UserOrganizationRole:
+      $ref: './components/schemas.yaml#/UserOrganizationRole'
+
+    # Notification Preference Objects
+    UserEmailNotificationPreferences:
+      $ref: './components/schemas.yaml#/UserEmailNotificationPreferences'
+    UserPushNotificationPreferences:
+      $ref: './components/schemas.yaml#/UserPushNotificationPreferences'
+    UserInAppNotificationPreferences:
+      $ref: './components/schemas.yaml#/UserInAppNotificationPreferences'
+    UserDigestPreferences:
+      $ref: './components/schemas.yaml#/UserDigestPreferences'
+    UserNotificationPreferences:
+      $ref: './components/schemas.yaml#/UserNotificationPreferences'
+
+    # User Preference Objects
+    UserPreferences:
+      $ref: './components/schemas.yaml#/UserPreferences'
+
+    # Update Request Objects
+    UserEmailNotificationPreferencesUpdateRequest:
+      $ref: './components/schemas.yaml#/UserEmailNotificationPreferencesUpdateRequest'
+    UserPushNotificationPreferencesUpdateRequest:
+      $ref: './components/schemas.yaml#/UserPushNotificationPreferencesUpdateRequest'
+    UserInAppNotificationPreferencesUpdateRequest:
+      $ref: './components/schemas.yaml#/UserInAppNotificationPreferencesUpdateRequest'
+    UserDigestPreferencesUpdateRequest:
+      $ref: './components/schemas.yaml#/UserDigestPreferencesUpdateRequest'
+    UserNotificationPreferencesUpdateRequest:
+      $ref: './components/schemas.yaml#/UserNotificationPreferencesUpdateRequest'
+    UserPreferencesUpdateRequest:
+      $ref: './components/schemas.yaml#/UserPreferencesUpdateRequest'
+
+    # Activity and Analytics Objects
+    UserActivity:
+      $ref: './components/schemas.yaml#/UserActivity'
+    UserLoginEvent:
+      $ref: './components/schemas.yaml#/UserLoginEvent'
+    UserActionEvent:
+      $ref: './components/schemas.yaml#/UserActionEvent'
+
+    # Analytics Objects
+    UserAnalytics:
+      $ref: './components/schemas.yaml#/UserAnalytics'
+    UserAnalyticsOverview:
+      $ref: './components/schemas.yaml#/UserAnalyticsOverview'
+    UserActivityAnalytics:
+      $ref: './components/schemas.yaml#/UserActivityAnalytics'
+    UserActionStat:
+      $ref: './components/schemas.yaml#/UserActionStat'
+    UserPerformanceMetrics:
+      $ref: './components/schemas.yaml#/UserPerformanceMetrics'
+
+    # Bulk Operation Objects
+    UserBulkOperationRequest:
+      $ref: './components/schemas.yaml#/UserBulkOperationRequest'
+    UserBulkOperationResponse:
+      $ref: './components/schemas.yaml#/UserBulkOperationResponse'
+    UserBulkOperationResult:
+      $ref: './components/schemas.yaml#/UserBulkOperationResult'
+    UserBulkOperationError:
+      $ref: './components/schemas.yaml#/UserBulkOperationError'
+
+    # Export Objects
+    UserExportResponse:
+      $ref: './components/schemas.yaml#/UserExportResponse'
+
+    # Common Schemas
+    ErrorResponse:
+      $ref: './components/common.yaml#/ErrorResponse'
+    ValidationError:
+      $ref: './components/common.yaml#/ValidationError'
+    DomainError:
+      $ref: './components/common.yaml#/DomainError'
+    SuccessResponse:
+      $ref: './components/common.yaml#/SuccessResponse'
+    PaginationMeta:
+      $ref: './components/common.yaml#/PaginationMeta'
+    PaginationResponse:
+      $ref: './components/common.yaml#/PaginationResponse'
+    AuditInfo:
+      $ref: './components/common.yaml#/AuditInfo'

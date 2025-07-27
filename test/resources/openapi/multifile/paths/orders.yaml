@@ -1,0 +1,304 @@
+OrderCollection:
+  get:
+    tags:
+      - Orders
+    summary: List Orders
+    description: Retrieve a paginated list of orders
+    operationId: listOrders
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/page'
+      - $ref: '../components/parameters.yaml#/limit'
+      - $ref: '../components/parameters.yaml#/status'
+      - $ref: '../components/parameters.yaml#/sortBy'
+      - $ref: '../components/parameters.yaml#/sortOrder'
+      - $ref: '../components/parameters.yaml#/createdAfter'
+      - $ref: '../components/parameters.yaml#/createdBefore'
+      - $ref: '../components/parameters.yaml#/includeDetails'
+    responses:
+      '200':
+        description: Successfully retrieved orders
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/OrderList'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  post:
+    tags:
+      - Orders
+    summary: Create Order
+    description: Create a new order
+    operationId: createOrder
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/OrderCreateRequest'
+    responses:
+      '201':
+        description: Order created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Order'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+OrderResource:
+  get:
+    tags:
+      - Orders
+    summary: Get Order
+    description: Retrieve a specific order by ID
+    operationId: getOrderById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/orderId'
+      - $ref: '../components/parameters.yaml#/includeDetails'
+    responses:
+      '200':
+        description: Successfully retrieved order
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Order'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  put:
+    tags:
+      - Orders
+    summary: Update Order
+    description: Update an existing order
+    operationId: updateOrder
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/orderId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/OrderUpdateRequest'
+    responses:
+      '200':
+        description: Order updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Order'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  delete:
+    tags:
+      - Orders
+    summary: Cancel Order
+    description: Cancel an order (only if not yet shipped)
+    operationId: cancelOrder
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/orderId'
+    responses:
+      '200':
+        description: Order cancelled successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Order'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+OrderItems:
+  get:
+    tags:
+      - Orders
+    summary: Get Order Items
+    description: Retrieve items for a specific order
+    operationId: getOrderItems
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/orderId'
+    responses:
+      '200':
+        description: Successfully retrieved order items
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas.yaml#/OrderItem'
+                total:
+                  type: integer
+                  description: Total number of items
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'

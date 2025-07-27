@@ -1,0 +1,185 @@
+# =============================================================================
+# COMMON SCHEMAS AND COMPONENTS
+# =============================================================================
+#
+# This file contains common schemas and components that are shared across
+# multiple API endpoints and domains.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ERROR RESPONSE SCHEMAS
+# -----------------------------------------------------------------------------
+
+ErrorResponse:
+  type: object
+  required:
+    - error
+    - message
+  properties:
+    error:
+      type: string
+      description: Error code
+      example: "VALIDATION_ERROR"
+    message:
+      type: string
+      description: Human-readable error message
+      example: "The request contains invalid data"
+    details:
+      type: string
+      description: Additional error details
+      example: "Missing required field: email"
+    timestamp:
+      type: string
+      format: date-time
+      description: When the error occurred
+    path:
+      type: string
+      description: API path where the error occurred
+      example: "/api/v1/users"
+    requestId:
+      type: string
+      description: Unique request identifier for tracking
+      example: "req_12345678"
+
+ValidationError:
+  type: object
+  required:
+    - error
+    - message
+    - fields
+  properties:
+    error:
+      type: string
+      enum: ["VALIDATION_ERROR"]
+      description: Error code
+    message:
+      type: string
+      description: Human-readable error message
+      example: "Validation failed"
+    fields:
+      type: array
+      items:
+        type: object
+        required:
+          - field
+          - message
+        properties:
+          field:
+            type: string
+            description: Field name that failed validation
+            example: "email"
+          message:
+            type: string
+            description: Validation error message
+            example: "Invalid email format"
+          code:
+            type: string
+            description: Validation error code
+            example: "INVALID_FORMAT"
+    timestamp:
+      type: string
+      format: date-time
+      description: When the error occurred
+
+SuccessResponse:
+  type: object
+  required:
+    - success
+    - message
+  properties:
+    success:
+      type: boolean
+      enum: [true]
+      description: Indicates successful operation
+    message:
+      type: string
+      description: Human-readable success message
+      example: "Operation completed successfully"
+    timestamp:
+      type: string
+      format: date-time
+      description: When the operation completed
+
+# -----------------------------------------------------------------------------
+# PAGINATION SCHEMAS
+# -----------------------------------------------------------------------------
+
+PaginationMeta:
+  type: object
+  required:
+    - page
+    - limit
+    - total
+    - totalPages
+  properties:
+    page:
+      type: integer
+      minimum: 1
+      description: Current page number
+      example: 1
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 100
+      description: Number of items per page
+      example: 20
+    total:
+      type: integer
+      minimum: 0
+      description: Total number of items
+      example: 150
+    totalPages:
+      type: integer
+      minimum: 0
+      description: Total number of pages
+      example: 8
+    hasNext:
+      type: boolean
+      description: Whether there are more pages
+      example: true
+    hasPrevious:
+      type: boolean
+      description: Whether there are previous pages
+      example: false
+
+PaginationResponse:
+  type: object
+  required:
+    - meta
+  properties:
+    meta:
+      $ref: '#/PaginationMeta'
+
+# -----------------------------------------------------------------------------
+# AUDIT AND TRACKING SCHEMAS
+# -----------------------------------------------------------------------------
+
+AuditInfo:
+  type: object
+  properties:
+    createdAt:
+      type: string
+      format: date-time
+      description: When the record was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the record was last updated
+    createdBy:
+      type: string
+      description: ID of the user who created the record
+      example: "user_12345"
+    updatedBy:
+      type: string
+      description: ID of the user who last updated the record
+      example: "user_67890"
+    version:
+      type: integer
+      minimum: 1
+      description: Record version for optimistic locking
+      example: 1
+
+# =============================================================================
+# END OF COMMON SCHEMAS
+# =============================================================================

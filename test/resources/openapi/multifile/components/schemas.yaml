@@ -1,0 +1,773 @@
+# =============================================================================
+# E-COMMERCE API SCHEMAS
+# =============================================================================
+#
+# This file contains all schema definitions for the E-commerce API.
+# Schemas are organized by domain and functionality.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# USER DOMAIN SCHEMAS
+# -----------------------------------------------------------------------------
+
+User:
+  type: object
+  required:
+    - id
+    - email
+    - username
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the user
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    email:
+      type: string
+      format: email
+      description: User's email address
+      example: "user@example.com"
+    username:
+      type: string
+      minLength: 3
+      maxLength: 50
+      description: Unique username
+      example: "johndoe"
+    firstName:
+      type: string
+      description: User's first name
+      example: "John"
+    lastName:
+      type: string
+      description: User's last name
+      example: "Doe"
+    phone:
+      type: string
+      pattern: '^\+?[1-9]\d{1,14}$'
+      description: User's phone number
+      example: "+1234567890"
+    address:
+      $ref: '#/Address'
+      description: User's address
+    isActive:
+      type: boolean
+      description: Whether the user account is active
+      default: true
+    createdAt:
+      type: string
+      format: date-time
+      description: When the user was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the user was last updated
+
+UserCreateRequest:
+  type: object
+  required:
+    - email
+    - username
+    - firstName
+    - lastName
+  properties:
+    email:
+      type: string
+      format: email
+      description: User's email address
+      example: "newuser@example.com"
+    username:
+      type: string
+      minLength: 3
+      maxLength: 50
+      description: Unique username
+      example: "newuser123"
+    firstName:
+      type: string
+      description: User's first name
+      example: "Jane"
+    lastName:
+      type: string
+      description: User's last name
+      example: "Smith"
+    phone:
+      type: string
+      pattern: '^\+?[1-9]\d{1,14}$'
+      description: User's phone number
+      example: "+1234567890"
+    address:
+      $ref: '#/Address'
+      description: User's address
+
+UserUpdateRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+      description: User's email address
+    firstName:
+      type: string
+      description: User's first name
+    lastName:
+      type: string
+      description: User's last name
+    phone:
+      type: string
+      pattern: '^\+?[1-9]\d{1,14}$'
+      description: User's phone number
+    address:
+      $ref: '#/Address'
+      description: User's address
+    isActive:
+      type: boolean
+      description: Whether the user account is active
+
+UserProfile:
+  allOf:
+    - $ref: '#/User'
+    - type: object
+      properties:
+        bio:
+          type: string
+          description: User biography
+          example: "Software developer with 5 years of experience"
+        avatar:
+          type: string
+          format: uri
+          description: URL to user's profile picture
+          example: "https://example.com/avatars/user123.jpg"
+        preferences:
+          type: object
+          description: User preferences
+          additionalProperties: true
+        lastLoginAt:
+          type: string
+          format: date-time
+          description: When the user last logged in
+
+UserList:
+  allOf:
+    - $ref: './common.yaml#/PaginationResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/User'
+
+# -----------------------------------------------------------------------------
+# SUPPORTING SCHEMAS
+# -----------------------------------------------------------------------------
+
+Address:
+  type: object
+  required:
+    - street
+    - city
+    - country
+  properties:
+    street:
+      type: string
+      example: "123 Main St"
+    city:
+      type: string
+      example: "New York"
+    state:
+      type: string
+      example: "NY"
+    postalCode:
+      type: string
+      example: "10001"
+    country:
+      type: string
+      example: "US"
+
+# -----------------------------------------------------------------------------
+# PRODUCT DOMAIN SCHEMAS
+# -----------------------------------------------------------------------------
+
+Product:
+  type: object
+  required:
+    - id
+    - name
+    - price
+    - category
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the product
+      example: "456e7890-e89b-12d3-a456-426614174001"
+    name:
+      type: string
+      description: Product name
+      example: "Wireless Headphones"
+    description:
+      type: string
+      description: Product description
+      example: "High-quality wireless bluetooth headphones"
+    price:
+      type: number
+      format: float
+      minimum: 0
+      description: Product price
+      example: 99.99
+    currency:
+      type: string
+      enum: [USD, EUR, GBP]
+      default: USD
+      description: Price currency
+    category:
+      $ref: '#/Category'
+      description: Product category
+    images:
+      type: array
+      items:
+        type: string
+        format: uri
+      description: Product image URLs
+      example: ["https://example.com/image1.jpg"]
+    attributes:
+      type: object
+      additionalProperties: true
+      description: Additional product attributes
+    inStock:
+      type: boolean
+      default: true
+      description: Whether the product is in stock
+    stockQuantity:
+      type: integer
+      minimum: 0
+      description: Available stock quantity
+      example: 50
+    rating:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 5
+      description: Average product rating
+      example: 4.5
+    reviewCount:
+      type: integer
+      minimum: 0
+      description: Number of reviews
+      example: 127
+    createdAt:
+      type: string
+      format: date-time
+      description: When the product was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the product was last updated
+
+ProductCreateRequest:
+  type: object
+  required:
+    - name
+    - price
+    - categoryId
+  properties:
+    name:
+      type: string
+      description: Product name
+    description:
+      type: string
+      description: Product description
+    price:
+      type: number
+      format: float
+      minimum: 0
+      description: Product price
+    currency:
+      type: string
+      enum: [USD, EUR, GBP]
+      default: USD
+      description: Price currency
+    categoryId:
+      type: string
+      format: uuid
+      description: Category ID
+    images:
+      type: array
+      items:
+        type: string
+        format: uri
+      description: Product image URLs
+    attributes:
+      type: object
+      additionalProperties: true
+      description: Additional product attributes
+    stockQuantity:
+      type: integer
+      minimum: 0
+      description: Initial stock quantity
+
+ProductUpdateRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      description: Product name
+    description:
+      type: string
+      description: Product description
+    price:
+      type: number
+      format: float
+      minimum: 0
+      description: Product price
+    currency:
+      type: string
+      enum: [USD, EUR, GBP]
+      description: Price currency
+    categoryId:
+      type: string
+      format: uuid
+      description: Category ID
+    images:
+      type: array
+      items:
+        type: string
+        format: uri
+      description: Product image URLs
+    attributes:
+      type: object
+      additionalProperties: true
+      description: Additional product attributes
+    inStock:
+      type: boolean
+      description: Whether the product is in stock
+    stockQuantity:
+      type: integer
+      minimum: 0
+      description: Available stock quantity
+
+ProductList:
+  allOf:
+    - $ref: './common.yaml#/PaginationResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/Product'
+
+Category:
+  type: object
+  required:
+    - id
+    - name
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the category
+      example: "789e0123-e89b-12d3-a456-426614174002"
+    name:
+      type: string
+      description: Category name
+      example: "Electronics"
+    description:
+      type: string
+      description: Category description
+      example: "Electronic devices and accessories"
+    parentId:
+      type: string
+      format: uuid
+      description: Parent category ID for hierarchical categories
+    slug:
+      type: string
+      description: URL-friendly category identifier
+      example: "electronics"
+    isActive:
+      type: boolean
+      default: true
+      description: Whether the category is active
+    createdAt:
+      type: string
+      format: date-time
+      description: When the category was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the category was last updated
+
+# -----------------------------------------------------------------------------
+# ORDER DOMAIN SCHEMAS
+# -----------------------------------------------------------------------------
+
+Order:
+  type: object
+  required:
+    - id
+    - userId
+    - status
+    - items
+    - total
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the order
+      example: "789e0123-e89b-12d3-a456-426614174002"
+    userId:
+      type: string
+      format: uuid
+      description: User who placed the order
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    status:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+      description: Current order status
+      example: "processing"
+    items:
+      type: array
+      items:
+        $ref: '#/OrderItem'
+      description: Items in the order
+    subtotal:
+      type: number
+      format: float
+      description: Subtotal before tax and shipping
+      example: 199.98
+    tax:
+      type: number
+      format: float
+      description: Tax amount
+      example: 16.00
+    shipping:
+      type: number
+      format: float
+      description: Shipping cost
+      example: 9.99
+    total:
+      type: number
+      format: float
+      description: Total order amount
+      example: 225.97
+    shippingAddress:
+      $ref: '#/Address'
+      description: Shipping address
+    billingAddress:
+      $ref: '#/Address'
+      description: Billing address
+    paymentMethod:
+      $ref: '#/PaymentMethod'
+      description: Payment method used
+    notes:
+      type: string
+      description: Additional order notes
+    trackingNumber:
+      type: string
+      description: Shipping tracking number
+    createdAt:
+      type: string
+      format: date-time
+      description: When the order was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the order was last updated
+
+OrderCreateRequest:
+  type: object
+  required:
+    - items
+    - shippingAddress
+    - paymentMethod
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        required:
+          - productId
+          - quantity
+        properties:
+          productId:
+            type: string
+            format: uuid
+            description: Product ID
+          quantity:
+            type: integer
+            minimum: 1
+            description: Quantity to order
+      description: Items to order
+    shippingAddress:
+      $ref: '#/Address'
+      description: Shipping address
+    billingAddress:
+      $ref: '#/Address'
+      description: Billing address (optional, defaults to shipping)
+    paymentMethod:
+      $ref: '#/PaymentMethod'
+      description: Payment method
+    notes:
+      type: string
+      description: Additional order notes
+
+OrderUpdateRequest:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+      description: Order status
+    trackingNumber:
+      type: string
+      description: Shipping tracking number
+    notes:
+      type: string
+      description: Additional order notes
+
+OrderList:
+  allOf:
+    - $ref: './common.yaml#/PaginationResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/Order'
+
+OrderItem:
+  type: object
+  required:
+    - productId
+    - quantity
+    - price
+  properties:
+    productId:
+      type: string
+      format: uuid
+      description: Product ID
+      example: "456e7890-e89b-12d3-a456-426614174001"
+    product:
+      $ref: '#/Product'
+      description: Product details (if included)
+    quantity:
+      type: integer
+      minimum: 1
+      description: Quantity ordered
+      example: 2
+    price:
+      type: number
+      format: float
+      description: Price per item at time of order
+      example: 99.99
+    total:
+      type: number
+      format: float
+      description: Total for this line item
+      example: 199.98
+
+PaymentMethod:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum: [credit_card, debit_card, paypal, apple_pay, google_pay]
+      example: "credit_card"
+    cardLast4:
+      type: string
+      pattern: '^\d{4}$'
+      example: "1234"
+    expiryMonth:
+      type: integer
+      minimum: 1
+      maximum: 12
+      example: 12
+    expiryYear:
+      type: integer
+      example: 2025
+
+# -----------------------------------------------------------------------------
+# CART DOMAIN SCHEMAS
+# -----------------------------------------------------------------------------
+
+Cart:
+  type: object
+  required:
+    - userId
+    - items
+  properties:
+    userId:
+      type: string
+      format: uuid
+      description: User who owns the cart
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    items:
+      type: array
+      items:
+        $ref: '#/CartItem'
+      description: Items in the cart
+    subtotal:
+      type: number
+      format: float
+      description: Cart subtotal
+      example: 199.98
+    itemCount:
+      type: integer
+      minimum: 0
+      description: Total number of items in cart
+      example: 3
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the cart was last updated
+
+CartItem:
+  type: object
+  required:
+    - productId
+    - quantity
+  properties:
+    productId:
+      type: string
+      format: uuid
+      description: Product ID
+      example: "456e7890-e89b-12d3-a456-426614174001"
+    product:
+      $ref: '#/Product'
+      description: Product details (if included)
+    quantity:
+      type: integer
+      minimum: 1
+      description: Quantity in cart
+      example: 2
+    addedAt:
+      type: string
+      format: date-time
+      description: When the item was added to cart
+
+CartItemCreateRequest:
+  type: object
+  required:
+    - productId
+    - quantity
+  properties:
+    productId:
+      type: string
+      format: uuid
+      description: Product ID to add
+    quantity:
+      type: integer
+      minimum: 1
+      description: Quantity to add
+
+Review:
+  type: object
+  required:
+    - id
+    - userId
+    - productId
+    - rating
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the review
+      example: "999e4567-e89b-12d3-a456-426614174003"
+    userId:
+      type: string
+      format: uuid
+      description: User who wrote the review
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    productId:
+      type: string
+      format: uuid
+      description: Product being reviewed
+      example: "456e7890-e89b-12d3-a456-426614174001"
+    rating:
+      type: integer
+      minimum: 1
+      maximum: 5
+      description: Rating from 1 to 5 stars
+      example: 4
+    title:
+      type: string
+      description: Review title
+      example: "Great product!"
+    comment:
+      type: string
+      description: Review comment
+      example: "Really happy with this purchase"
+    verified:
+      type: boolean
+      default: false
+      description: Whether this is a verified purchase review
+    helpful:
+      type: integer
+      minimum: 0
+      default: 0
+      description: Number of helpful votes
+    createdAt:
+      type: string
+      format: date-time
+      description: When the review was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the review was last updated
+
+ReviewList:
+  allOf:
+    - $ref: './common.yaml#/PaginationResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/Review'
+
+
+# Webhook event schemas
+# -----------------------------------------------------------------------------
+# WEBHOOK EVENT SCHEMAS
+# -----------------------------------------------------------------------------
+
+OrderStatusEvent:
+  type: object
+  required:
+    - event
+    - orderId
+    - newStatus
+    - timestamp
+  properties:
+    event:
+      type: string
+      enum: [order.status.changed]
+      description: Event type
+      example: "order.status.changed"
+    orderId:
+      type: string
+      format: uuid
+      description: Order ID
+      example: "789e0123-e89b-12d3-a456-426614174002"
+    newStatus:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+      description: New order status
+      example: "shipped"
+    previousStatus:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+      description: Previous order status
+      example: "processing"
+    timestamp:
+      type: string
+      format: date-time
+      description: When the status change occurred
+    userId:
+      type: string
+      format: uuid
+      description: User who owns the order
+    metadata:
+      type: object
+      additionalProperties: true
+      description: Additional event metadata

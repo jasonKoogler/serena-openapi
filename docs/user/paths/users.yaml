@@ -1,0 +1,772 @@
+UserCollection:
+  get:
+    tags:
+      - Users
+    summary: List Users
+    description: Retrieve a paginated list of all users for the organization
+    operationId: getUsers
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/page'
+      - $ref: '../components/parameters.yaml#/limit'
+      - $ref: '../components/parameters.yaml#/search'
+      - name: role
+        in: query
+        description: Filter by user role
+        schema:
+          type: string
+          enum: [admin, manager, staff, customer, guest]
+      - name: status
+        in: query
+        description: Filter by user status
+        schema:
+          type: string
+          enum: [active, inactive, pending, suspended, archived]
+      - name: department
+        in: query
+        description: Filter by department
+        schema:
+          type: string
+      - name: includeProfile
+        in: query
+        description: Include user profile information
+        schema:
+          type: boolean
+          default: false
+      - name: lastLoginAfter
+        in: query
+        description: Filter users who logged in after this date
+        schema:
+          type: string
+          format: date-time
+      - name: createdAfter
+        in: query
+        description: Filter users created after this date
+        schema:
+          type: string
+          format: date-time
+      - name: sortBy
+        in: query
+        description: Sort users by field
+        schema:
+          type: string
+          enum: [name, email, role, last_login, created_at]
+          default: name
+      - name: sortOrder
+        in: query
+        description: Sort order
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: asc
+    responses:
+      '200':
+        description: Successfully retrieved users
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserList'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+  post:
+    tags:
+      - Users
+    summary: Create User
+    description: Create a new user for the organization
+    operationId: createUser
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UserCreateRequest'
+    responses:
+      '201':
+        description: User created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/User'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '409':
+        description: Conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/DomainError'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+UserResource:
+  get:
+    tags:
+      - Users
+    summary: Get User
+    description: Retrieve a specific user by ID
+    operationId: getUserById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - name: userId
+        in: path
+        required: true
+        description: Unique identifier for the user
+        schema:
+          type: string
+          format: uuid
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      - name: includeProfile
+        in: query
+        description: Include detailed user profile
+        schema:
+          type: boolean
+          default: true
+      - name: includePermissions
+        in: query
+        description: Include user permissions
+        schema:
+          type: boolean
+          default: false
+      - name: includeActivity
+        in: query
+        description: Include recent activity
+        schema:
+          type: boolean
+          default: false
+    responses:
+      '200':
+        description: Successfully retrieved user
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserResponse'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+  put:
+    tags:
+      - Users
+    summary: Update User
+    description: Update a specific user by ID
+    operationId: updateUser
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UserUpdateRequest'
+    responses:
+      '200':
+        description: User updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserResponse'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '409':
+        description: Conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/DomainError'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+  delete:
+    tags:
+      - Users
+    summary: Delete User
+    description: Delete a specific user by ID (soft delete)
+    operationId: deleteUser
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+      - name: hardDelete
+        in: query
+        description: Permanently delete user (admin only)
+        schema:
+          type: boolean
+          default: false
+    responses:
+      '204':
+        description: User deleted successfully
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+UserProfile:
+  get:
+    tags:
+      - Users
+    summary: Get User Profile
+    description: Retrieve detailed profile information for a specific user
+    operationId: getUserProfile
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+    responses:
+      '200':
+        description: Successfully retrieved user profile
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserProfile'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+  put:
+    tags:
+      - Users
+    summary: Update User Profile
+    description: Update profile information for a specific user
+    operationId: updateUserProfile
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UserProfileUpdateRequest'
+    responses:
+      '200':
+        description: User profile updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserProfile'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+UserPreferences:
+  get:
+    tags:
+      - Users
+    summary: Get User Preferences
+    description: Retrieve user preferences and settings
+    operationId: getUserPreferences
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+    responses:
+      '200':
+        description: Successfully retrieved user preferences
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserPreferences'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+  put:
+    tags:
+      - Users
+    summary: Update User Preferences
+    description: Update user preferences and settings
+    operationId: updateUserPreferences
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UserPreferencesUpdateRequest'
+    responses:
+      '200':
+        description: User preferences updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserPreferences'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+# -----------------------------------------------------------------------------
+# USER ANALYTICS ENDPOINTS
+# -----------------------------------------------------------------------------
+
+UserAnalytics:
+  get:
+    tags:
+      - Users
+    summary: Get User Analytics
+    description: Retrieve user analytics and statistics for the organization
+    operationId: getUserAnalytics
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/createdAfter'
+      - $ref: '../components/parameters.yaml#/createdBefore'
+      - name: includeActivity
+        in: query
+        description: Include activity analytics
+        schema:
+          type: boolean
+          default: true
+      - name: includePerformance
+        in: query
+        description: Include performance metrics
+        schema:
+          type: boolean
+          default: false
+    responses:
+      '200':
+        description: Successfully retrieved user analytics
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserAnalytics'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+# -----------------------------------------------------------------------------
+# USER EXPORT ENDPOINTS
+# -----------------------------------------------------------------------------
+
+UserExport:
+  get:
+    tags:
+      - Users
+    summary: Export Users
+    description: Export user data in various formats
+    operationId: exportUsers
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/format'
+      - $ref: '../components/parameters.yaml#/includeFields'
+      - $ref: '../components/parameters.yaml#/role'
+      - $ref: '../components/parameters.yaml#/status'
+      - $ref: '../components/parameters.yaml#/department'
+      - $ref: '../components/parameters.yaml#/createdAfter'
+      - $ref: '../components/parameters.yaml#/createdBefore'
+    responses:
+      '200':
+        description: Successfully exported users
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserExportResponse'
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+# -----------------------------------------------------------------------------
+# USER ACTIVITY TIMELINE
+# -----------------------------------------------------------------------------
+
+UserActivityTimeline:
+  get:
+    tags:
+      - Users
+    summary: Get User Activity Timeline
+    description: Retrieve detailed activity timeline for a specific user
+    operationId: getUserActivityTimeline
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/organizationId'
+      - $ref: '../components/parameters.yaml#/userId'
+      - $ref: '../components/parameters.yaml#/page'
+      - $ref: '../components/parameters.yaml#/limit'
+      - name: activityTypes
+        in: query
+        description: Filter by activity types
+        schema:
+          type: array
+          items:
+            type: string
+        style: form
+        explode: true
+      - name: startDate
+        in: query
+        description: Start date for activity timeline
+        schema:
+          type: string
+          format: date
+      - name: endDate
+        in: query
+        description: End date for activity timeline
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Successfully retrieved user activity timeline
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/common.yaml#/PaginationResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '../components/schemas.yaml#/UserActionEvent'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+

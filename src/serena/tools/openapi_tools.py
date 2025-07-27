@@ -15,6 +15,14 @@ import numpy as np
 from sensai.util import logging
 from sentence_transformers import SentenceTransformer
 
+try:
+    import yaml
+
+    YAML_AVAILABLE = True
+except ImportError:
+    yaml = None  # type: ignore[assignment]
+    YAML_AVAILABLE = False
+
 from serena.tools import Tool, ToolMarkerDoesNotRequireActiveProject
 
 if TYPE_CHECKING:
@@ -43,6 +51,16 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             self._model = SentenceTransformer(model_name)
         return self._model
 
+    @model.setter
+    def model(self, value: SentenceTransformer | None) -> None:
+        """Set the sentence transformer model."""
+        self._model = value
+
+    @model.deleter
+    def model(self) -> None:
+        """Delete the sentence transformer model."""
+        self._model = None
+
     @property
     def cache_dir(self) -> str:
         """Get the cache directory for OpenAPI indices."""
@@ -55,7 +73,14 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
                 # No active project, use temp directory
                 self._cache_dir = os.path.join(tempfile.gettempdir(), "serena_openapi_cache")
 
-        os.makedirs(self._cache_dir, exist_ok=True)
+        try:
+            os.makedirs(self._cache_dir, exist_ok=True)
+        except PermissionError:
+            # Fall back to temp directory if we can't create the cache dir
+            log.warning(f"Cannot create cache directory {self._cache_dir}, falling back to temp directory")
+            self._cache_dir = os.path.join(tempfile.gettempdir(), "serena_openapi_cache")
+            os.makedirs(self._cache_dir, exist_ok=True)
+
         return self._cache_dir
 
     def apply(
@@ -70,6 +95,7 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
         method_filter: str | None = None,
         path_filter: str | None = None,
         tags_filter: list[str] | None = None,
+        section_filter: str | None = None,
     ) -> str:
         """
         Search OpenAPI specification using natural language query.
@@ -86,6 +112,7 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             method_filter: Filter by HTTP method (GET, POST, PUT, DELETE, etc.)
             path_filter: Filter by path pattern (supports regex)
             tags_filter: Filter by tags (endpoints must have at least one matching tag)
+            section_filter: Filter by API section type ("operations", "webhooks", "security_schemes")
 
         Returns:
             Formatted text with relevant API endpoints and usage instructions
@@ -115,7 +142,15 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
                         self._build_index(spec_file, index_dir)
 
                     # Perform semantic search with filters
-                    results = self._semantic_search(query, index_dir, top_k, method_filter, path_filter, tags_filter)
+                    results = self._semantic_search(
+                        query,
+                        index_dir,
+                        top_k,
+                        method_filter=method_filter,
+                        path_filter=path_filter,
+                        tags_filter=tags_filter,
+                        section_filter=section_filter,
+                    )
 
                     # Add spec path to results metadata
                     for result in results:
@@ -125,6 +160,9 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
                 except Exception as e:
                     log.warning(f"Error searching spec {spec_file}: {e}")
+                    # If we're only searching one spec and it fails, return error
+                    if len(specs_to_search) == 1:
+                        raise
                     continue
 
             if not all_results:
@@ -224,15 +262,89 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
         return found_specs
 
     def _get_file_hash(self, file_path: str) -> str:
-        """Generate a hash for the file content and modification time."""
-        with open(file_path, "rb") as f:
-            content = f.read()
+        """Generate a hash for the file content and modification time, including dependencies."""
+        # Get all files that this spec depends on
+        dependency_files = self._get_spec_dependencies(file_path)
 
-        stat = os.stat(file_path)
-        content_hash = hashlib.md5(content).hexdigest()
-        time_hash = hashlib.md5(str(stat.st_mtime).encode()).hexdigest()
+        # Include main file in dependencies
+        all_files = [file_path] + dependency_files
 
-        return hashlib.md5(f"{content_hash}_{time_hash}".encode()).hexdigest()
+        # Create combined hash from all files
+        combined_hash_parts = []
+
+        for dep_file in sorted(all_files):  # Sort for consistent hashing
+            try:
+                with open(dep_file, "rb") as f:
+                    content = f.read()
+
+                stat = os.stat(dep_file)
+                content_hash = hashlib.md5(content).hexdigest()
+                time_hash = hashlib.md5(str(stat.st_mtime).encode()).hexdigest()
+                file_hash = f"{dep_file}:{content_hash}:{time_hash}"
+                combined_hash_parts.append(file_hash)
+            except (FileNotFoundError, OSError) as e:
+                log.warning(f"Could not hash dependency file {dep_file}: {e}")
+                # Include file path and error in hash to ensure cache invalidation
+                combined_hash_parts.append(f"{dep_file}:missing")
+
+        # Create final hash from all file hashes
+        combined_string = "|".join(combined_hash_parts)
+        return hashlib.md5(combined_string.encode()).hexdigest()
+
+    def _get_spec_dependencies(self, file_path: str, visited: set[str] | None = None) -> list[str]:
+        """Get list of files that this OpenAPI spec depends on via $ref."""
+        if visited is None:
+            visited = set()
+
+        # Prevent infinite recursion
+        abs_path = os.path.abspath(file_path)
+        if abs_path in visited:
+            return []
+        visited.add(abs_path)
+
+        dependencies: set[str] = set()
+
+        try:
+            # Load the spec to analyze dependencies
+            with open(file_path, encoding="utf-8") as f:
+                if file_path.endswith((".yaml", ".yml")):
+                    if not YAML_AVAILABLE:
+                        return []  # Can't analyze YAML dependencies without PyYAML
+                    spec = yaml.safe_load(f)  # type: ignore[attr-defined]
+                else:
+                    spec = json.load(f)
+
+            # Find all external $ref references
+            base_dir = os.path.dirname(os.path.abspath(file_path))
+            self._collect_external_refs(spec, base_dir, dependencies, visited)
+
+        except Exception as e:
+            log.debug(f"Could not analyze dependencies for {file_path}: {e}")
+            return []
+
+        return sorted(dependencies)
+
+    def _collect_external_refs(self, obj: Any, base_dir: str, dependencies: set[str], visited: set[str]) -> None:
+        """Recursively collect external $ref file paths."""
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if key == "$ref" and isinstance(value, str):
+                    # Check if it's an external reference (not internal #/...)
+                    if not value.startswith("#/"):
+                        # Resolve relative path
+                        if "://" not in value:  # Skip URLs
+                            ref_path = os.path.normpath(os.path.join(base_dir, value.split("#")[0]))
+                            if os.path.exists(ref_path):
+                                dependencies.add(ref_path)
+                                # Recursively check dependencies of this file
+                                sub_deps = self._get_spec_dependencies(ref_path, visited)
+                                dependencies.update(sub_deps)
+                elif isinstance(value, (dict, list)):
+                    self._collect_external_refs(value, base_dir, dependencies, visited)
+        elif isinstance(obj, list):
+            for item in obj:
+                if isinstance(item, (dict, list)):
+                    self._collect_external_refs(item, base_dir, dependencies, visited)
 
     def _is_index_valid(self, index_dir: str, spec_path: str) -> bool:
         """Check if the cached index is valid and up to date."""
@@ -258,43 +370,58 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             return False
 
     def _preprocess_openapi_spec(self, filepath: str) -> dict[str, Any]:
-        """Preprocess OpenAPI spec with optional Redocly CLI validation."""
+        """Preprocess OpenAPI spec with multi-file $ref resolution."""
+        # First, try Redocly bundle for automatic $ref resolution
+        bundled_spec = self._try_redocly_bundle(filepath)
+        if bundled_spec:
+            return bundled_spec
+
+        # Fallback: try jsonref for $ref resolution
+        resolved_spec = self._try_jsonref_resolution(filepath)
+        if resolved_spec:
+            return resolved_spec
+
+        # Final fallback: load file directly (single-file specs)
+        return self._load_spec_direct(filepath)
+
+    def _try_redocly_bundle(self, filepath: str) -> dict[str, Any] | None:
+        """Try to use Redocly CLI bundle command to resolve $ref references."""
+        if not self._is_redocly_available():
+            log.debug("Redocly CLI not available for $ref resolution")
+            return None
+
         temp_path = None
-
         try:
-            # Try to use Redocly CLI if available and enabled
-            if self.agent.serena_config.openapi.use_redocly_validation and self._is_redocly_available():
-                with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as temp_file:
-                    temp_path = temp_file.name
+            with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as temp_file:
+                temp_path = temp_file.name
 
-                # Bundle the spec using Redocly
-                bundle_command = ["redocly", "bundle", filepath, "--output", temp_path]
-                timeout = self.agent.serena_config.openapi.redocly_timeout
-                result = subprocess.run(bundle_command, check=True, capture_output=True, text=True, timeout=timeout)
+            # Bundle the spec using Redocly - this resolves all $ref automatically
+            bundle_command = ["redocly", "bundle", filepath, "--output", temp_path, "--format", "json"]
+            timeout = self.agent.serena_config.openapi.redocly_timeout
 
-                if result.returncode != 0:
-                    log.warning(f"Redocly bundle warning: {result.stderr}")
+            result = subprocess.run(bundle_command, check=False, capture_output=True, text=True, timeout=timeout)
 
-                # Validate the bundled spec
-                lint_command = ["redocly", "lint", temp_path]
-                result = subprocess.run(lint_command, check=False, capture_output=True, text=True, timeout=timeout)
-
-                if result.returncode != 0:
-                    log.warning(f"Redocly lint warning: {result.stderr}")
-
-                # Load the processed spec
+            if result.returncode == 0:
+                # Load the bundled spec with resolved references
                 with open(temp_path) as f:
                     spec = json.load(f)
 
-                log.info("OpenAPI spec processed with Redocly CLI")
+                # Optionally validate if validation is enabled
+                if self.agent.serena_config.openapi.use_redocly_validation:
+                    self._validate_with_redocly(temp_path)
+
+                log.info("OpenAPI spec bundled with Redocly CLI (resolved $ref references)")
                 return spec
             else:
-                log.info("Redocly CLI not available, using direct parsing")
+                log.warning(f"Redocly bundle failed: {result.stderr}")
+                return None
 
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            log.warning(f"Error during Redocly processing: {e}, falling back to direct parsing")
+            log.warning(f"Error during Redocly bundling: {e}")
+            return None
         except Exception as e:
-            log.warning(f"Unexpected error with Redocly: {e}, falling back to direct parsing")
+            log.warning(f"Unexpected error with Redocly bundling: {e}")
+            return None
         finally:
             # Clean up temp file
             if temp_path:
@@ -303,16 +430,88 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
                 except FileNotFoundError:
                     pass
 
-        # Fallback: load the original file directly
+    def _validate_with_redocly(self, spec_path: str) -> None:
+        """Validate OpenAPI spec with Redocly CLI."""
+        try:
+            lint_command = ["redocly", "lint", spec_path]
+            timeout = self.agent.serena_config.openapi.redocly_timeout
+            result = subprocess.run(lint_command, check=False, capture_output=True, text=True, timeout=timeout)
+
+            if result.returncode != 0:
+                log.warning(f"Redocly validation warnings: {result.stderr}")
+        except Exception as e:
+            log.debug(f"Redocly validation failed: {e}")
+
+    def _try_jsonref_resolution(self, filepath: str) -> dict[str, Any] | None:
+        """Try to resolve $ref references using jsonref library."""
+        try:
+            import jsonref
+        except ImportError:
+            log.debug("jsonref library not available for $ref resolution")
+            return None
+
+        try:
+            # Load the base spec
+            with open(filepath, encoding="utf-8") as f:
+                if filepath.endswith((".yaml", ".yml")):
+                    if not YAML_AVAILABLE:
+                        log.warning("PyYAML required for YAML $ref resolution")
+                        return None
+                    base_spec = yaml.safe_load(f)  # type: ignore[attr-defined]
+                else:
+                    base_spec = json.load(f)
+
+            # Check if the spec contains any $ref references
+            if not self._has_external_refs(base_spec):
+                log.debug("No external $ref references found, using direct loading")
+                return base_spec
+
+            # Set up base URI for relative references
+            base_uri = f"file://{os.path.dirname(os.path.abspath(filepath))}/"
+
+            # Resolve all $ref references
+            resolved_spec = jsonref.replace_refs(base_spec, base_uri=base_uri)
+
+            # Convert back to regular dict (jsonref returns a proxy object)
+            resolved_dict = json.loads(json.dumps(resolved_spec))
+
+            log.info("OpenAPI spec processed with jsonref ($ref references resolved)")
+            return resolved_dict
+
+        except Exception as e:
+            log.warning(f"Error during jsonref resolution: {e}")
+            return None
+
+    def _has_external_refs(self, spec: dict) -> bool:
+        """Check if spec contains external $ref references."""
+
+        def check_refs_recursive(obj: Any) -> bool:
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if key == "$ref" and isinstance(value, str):
+                        # Check if it's an external reference (not internal #/...)
+                        if not value.startswith("#/"):
+                            return True
+                    elif isinstance(value, (dict, list)):
+                        if check_refs_recursive(value):
+                            return True
+            elif isinstance(obj, list):
+                for item in obj:
+                    if isinstance(item, (dict, list)):
+                        if check_refs_recursive(item):
+                            return True
+            return False
+
+        return check_refs_recursive(spec)
+
+    def _load_spec_direct(self, filepath: str) -> dict[str, Any]:
+        """Load OpenAPI spec directly without $ref resolution."""
         try:
             with open(filepath, encoding="utf-8") as f:
                 if filepath.endswith((".yaml", ".yml")):
-                    try:
-                        import yaml
-
-                        return yaml.safe_load(f)
-                    except ImportError:
+                    if not YAML_AVAILABLE:
                         raise ValueError("PyYAML is required to parse YAML files. Please install it or convert to JSON.")
+                    return yaml.safe_load(f)  # type: ignore[attr-defined]
                 else:
                     return json.load(f)
         except Exception as e:
@@ -392,21 +591,169 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
                     if response_codes:
                         text_parts.append(f"Response Codes: {', '.join(response_codes)}")
 
-                text_description = "\\n".join(text_parts)
+                # Add OpenAPI 3.x specific features
+
+                # Add callbacks information
+                callbacks = operation.get("callbacks", {})
+                if callbacks:
+                    callback_descriptions = []
+                    for callback_name, callback_def in callbacks.items():
+                        callback_descriptions.append(f"'{callback_name}' callback")
+                        # Process callback operations
+                        for expression, path_item in callback_def.items():
+                            if isinstance(path_item, dict):
+                                for cb_method, cb_operation in path_item.items():
+                                    if isinstance(cb_operation, dict):
+                                        cb_summary = cb_operation.get("summary", "")
+                                        if cb_summary:
+                                            callback_descriptions.append(f"  {cb_method.upper()} {expression}: {cb_summary}")
+
+                    if callback_descriptions:
+                        text_parts.append(f"Callbacks: {', '.join(callback_descriptions)}")
+
+                # Add security requirements
+                security = operation.get("security", [])
+                if security:
+                    security_schemes = []
+                    for sec_req in security:
+                        for scheme_name in sec_req.keys():
+                            security_schemes.append(scheme_name)
+                    if security_schemes:
+                        text_parts.append(f"Security: {', '.join(security_schemes)}")
+
+                # Add external documentation
+                external_docs = operation.get("externalDocs")
+                if external_docs:
+                    ext_desc = external_docs.get("description", "")
+                    ext_url = external_docs.get("url", "")
+                    if ext_desc or ext_url:
+                        text_parts.append(f"External Docs: {ext_desc} {ext_url}".strip())
+
+                text_description = "\n".join(text_parts)
+
+                chunk_metadata = {
+                    "operationId": operation_id,
+                    "path": path,
+                    "method": method.upper(),
+                    "summary": summary,
+                    "description": description,
+                    "tags": tags,
+                    "type": "operation",
+                }
+
+                # Add OpenAPI 3.x metadata
+                if callbacks:
+                    chunk_metadata["callbacks"] = list(callbacks.keys())
+                if security:
+                    chunk_metadata["security"] = [list(req.keys()) for req in security]
+
+                chunks.append(
+                    {
+                        "text": text_description,
+                        "metadata": chunk_metadata,
+                    }
+                )
+
+        # Process OpenAPI 3.x webhooks (OpenAPI 3.1+)
+        webhooks = spec.get("webhooks", {})
+        for webhook_name, webhook_def in webhooks.items():
+            if not isinstance(webhook_def, dict):
+                continue
+
+            for method, operation in webhook_def.items():
+                if method.startswith("x-") or not isinstance(operation, dict):
+                    continue
+
+                operation_id = operation.get("operationId", f"webhook_{webhook_name}_{method}")
+                summary = operation.get("summary", "")
+                description = operation.get("description", "")
+                tags = operation.get("tags", [])
+
+                text_parts = [
+                    f"Webhook: {operation_id}",
+                    f"Webhook Name: {webhook_name}",
+                    f"HTTP Method: {method.upper()}",
+                    "Type: Webhook/Event Notification",
+                ]
+
+                if summary:
+                    text_parts.append(f"Summary: {summary}")
+
+                if description:
+                    text_parts.append(f"Description: {description}")
+
+                if tags:
+                    text_parts.append(f"Tags: {', '.join(tags)}")
+
+                # Add webhook-specific information
+                request_body = operation.get("requestBody")
+                if request_body:
+                    content_types = list(request_body.get("content", {}).keys())
+                    if content_types:
+                        text_parts.append(f"Webhook Payload Types: {', '.join(content_types)}")
+
+                text_description = "\n".join(text_parts)
 
                 chunks.append(
                     {
                         "text": text_description,
                         "metadata": {
                             "operationId": operation_id,
-                            "path": path,
+                            "webhookName": webhook_name,
                             "method": method.upper(),
                             "summary": summary,
                             "description": description,
                             "tags": tags,
+                            "type": "webhook",
                         },
                     }
                 )
+
+        # Process components for additional context
+        components = spec.get("components", {})
+
+        # Process security schemes
+        security_schemes = components.get("securitySchemes", {})
+        for scheme_name, scheme_def in security_schemes.items():
+            if not isinstance(scheme_def, dict):
+                continue
+
+            scheme_type = scheme_def.get("type", "")
+            scheme_desc = scheme_def.get("description", "")
+
+            text_parts = [
+                f"Security Scheme: {scheme_name}",
+                f"Type: {scheme_type}",
+            ]
+
+            if scheme_desc:
+                text_parts.append(f"Description: {scheme_desc}")
+
+            # Add scheme-specific details
+            if scheme_type == "oauth2":
+                flows = scheme_def.get("flows", {})
+                if flows:
+                    flow_types = list(flows.keys())
+                    text_parts.append(f"OAuth2 Flows: {', '.join(flow_types)}")
+            elif scheme_type == "apiKey":
+                key_name = scheme_def.get("name", "")
+                key_location = scheme_def.get("in", "")
+                if key_name and key_location:
+                    text_parts.append(f"API Key: {key_name} in {key_location}")
+
+            text_description = "\\n".join(text_parts)
+
+            chunks.append(
+                {
+                    "text": text_description,
+                    "metadata": {
+                        "name": scheme_name,
+                        "type": "security_scheme",
+                        "schemeType": scheme_type,
+                        "description": scheme_desc,
+                    },
+                }
+            )
 
         return chunks
 
@@ -462,6 +809,7 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
         method_filter: str | None = None,
         path_filter: str | None = None,
         tags_filter: list[str] | None = None,
+        section_filter: str | None = None,
     ) -> list[dict[str, Any]]:
         """Perform semantic search using the cached index."""
         import re
@@ -473,17 +821,32 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             chunks = json.load(f)
 
         # Apply filters to chunks before search
-        if method_filter or path_filter or tags_filter:
+        if method_filter or path_filter or tags_filter or section_filter:
             filtered_indices = []
             for idx, chunk in enumerate(chunks):
                 metadata = chunk["metadata"]
 
-                # Method filter
-                if method_filter and metadata["method"].upper() != method_filter.upper():
-                    continue
+                # Section filter (filter by type of API element)
+                if section_filter:
+                    chunk_type = metadata.get("type", "operation")
+                    if (section_filter == "operations" and chunk_type != "operation") or (
+                        section_filter == "webhooks" and chunk_type != "webhook"
+                    ):
+                        continue
+                    if section_filter == "security_schemes" and chunk_type != "security_scheme":
+                        continue
+                    if section_filter not in ["operations", "webhooks", "security_schemes"]:
+                        # Custom section filter, check if it matches type or other metadata
+                        if chunk_type != section_filter:
+                            continue
 
-                # Path filter (regex support)
-                if path_filter:
+                # Method filter (only applies to operations and webhooks)
+                if method_filter and metadata.get("method"):
+                    if metadata["method"].upper() != method_filter.upper():
+                        continue
+
+                # Path filter (regex support, only applies to operations)
+                if path_filter and metadata.get("path"):
                     try:
                         if not re.search(path_filter, metadata["path"]):
                             continue
@@ -581,8 +944,27 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
         for result in results:
             metadata = result["metadata"]
             output.append(f"--- Rank {result['rank']} (Score: {result['score']:.3f}) ---")
-            output.append(f"Endpoint: {metadata['operationId']}")
-            output.append(f"Method: {metadata['method']} {metadata['path']}")
+
+            # Handle different types of results
+            result_type = metadata.get("type", "operation")
+            if result_type == "operation":
+                output.append(f"Endpoint: {metadata['operationId']}")
+                output.append(f"Method: {metadata['method']} {metadata['path']}")
+            elif result_type == "webhook":
+                output.append(f"Webhook: {metadata['operationId']}")
+                output.append(f"Method: {metadata['method']} (Webhook: {metadata.get('webhookName', 'Unknown')})")
+            elif result_type == "security_scheme":
+                output.append(f"Security Scheme: {metadata.get('name', 'Unknown')}")
+                output.append(f"Type: {metadata.get('schemeType', 'Unknown')}")
+            else:
+                # Fallback for unknown types
+                output.append(f"Item: {metadata.get('operationId', metadata.get('name', 'Unknown'))}")
+                if metadata.get("method") and metadata.get("path"):
+                    output.append(f"Method: {metadata['method']} {metadata['path']}")
+                elif metadata.get("method"):
+                    output.append(f"Method: {metadata['method']}")
+                elif metadata.get("schemeType"):
+                    output.append(f"Type: {metadata['schemeType']}")
 
             # Include spec file information if searching multiple specs
             if multi_spec and "spec_file" in result:
@@ -619,16 +1001,51 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
         for result in results:
             metadata = result["metadata"]
+            result_type = metadata.get("type", "operation")
+
             formatted_result = {
                 "rank": result["rank"],
                 "score": result["score"],
-                "operationId": metadata["operationId"],
-                "method": metadata["method"],
-                "path": metadata["path"],
+                "type": result_type,
                 "summary": metadata.get("summary", ""),
                 "description": metadata.get("description", ""),
                 "tags": metadata.get("tags", []),
             }
+
+            # Add type-specific fields
+            if result_type == "operation":
+                formatted_result.update(
+                    {
+                        "operationId": metadata["operationId"],
+                        "method": metadata["method"],
+                        "path": metadata["path"],
+                    }
+                )
+            elif result_type == "webhook":
+                formatted_result.update(
+                    {
+                        "operationId": metadata["operationId"],
+                        "method": metadata["method"],
+                        "webhookName": metadata.get("webhookName", ""),
+                    }
+                )
+            elif result_type == "security_scheme":
+                formatted_result.update(
+                    {
+                        "name": metadata.get("name", ""),
+                        "schemeType": metadata.get("schemeType", ""),
+                    }
+                )
+            else:
+                # Fallback - include all available metadata
+                formatted_result.update(
+                    {
+                        "operationId": metadata.get("operationId", ""),
+                        "name": metadata.get("name", ""),
+                        "method": metadata.get("method", ""),
+                        "path": metadata.get("path", ""),
+                    }
+                )
 
             if multi_spec and "spec_file" in result:
                 formatted_result["specification"] = os.path.basename(result["spec_file"])
@@ -650,10 +1067,32 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
         for result in results:
             metadata = result["metadata"]
-            output.append(f"## {result['rank']}. {metadata['operationId']}")
-            output.append(f"**Score:** {result['score']:.3f}\\n")
-            output.append(f"**Method:** `{metadata['method']}`")
-            output.append(f"**Path:** `{metadata['path']}`\\n")
+            result_type = metadata.get("type", "operation")
+
+            if result_type == "operation":
+                output.append(f"## {result['rank']}. {metadata['operationId']}")
+                output.append(f"**Score:** {result['score']:.3f}\\n")
+                output.append(f"**Method:** `{metadata['method']}`")
+                output.append(f"**Path:** `{metadata['path']}`\\n")
+            elif result_type == "webhook":
+                output.append(f"## {result['rank']}. {metadata['operationId']} (Webhook)")
+                output.append(f"**Score:** {result['score']:.3f}\\n")
+                output.append(f"**Method:** `{metadata['method']}`")
+                output.append(f"**Webhook:** `{metadata.get('webhookName', 'Unknown')}`\\n")
+            elif result_type == "security_scheme":
+                output.append(f"## {result['rank']}. {metadata.get('name', 'Unknown')} (Security Scheme)")
+                output.append(f"**Score:** {result['score']:.3f}\\n")
+                output.append(f"**Type:** `{metadata.get('schemeType', 'Unknown')}`\\n")
+            else:
+                # Fallback
+                title = metadata.get("operationId", metadata.get("name", "Unknown"))
+                output.append(f"## {result['rank']}. {title}")
+                output.append(f"**Score:** {result['score']:.3f}\\n")
+                if metadata.get("method") and metadata.get("path"):
+                    output.append(f"**Method:** `{metadata['method']}`")
+                    output.append(f"**Path:** `{metadata['path']}`\\n")
+                elif metadata.get("schemeType"):
+                    output.append(f"**Type:** `{metadata['schemeType']}`\\n")
 
             if multi_spec and "spec_file" in result:
                 spec_name = os.path.basename(result["spec_file"])
@@ -680,10 +1119,26 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
     def _generate_code_example(self, metadata: dict[str, Any]) -> str:
         """Generate a code example for the API endpoint."""
-        method = metadata["method"]
-        path = metadata["path"]
+        result_type = metadata.get("type", "operation")
 
-        # Simple curl example
+        if result_type == "security_scheme":
+            # No code example for security schemes
+            return ""
+
+        method = metadata.get("method", "")
+        path = metadata.get("path", "")
+
+        if not method:
+            return ""
+
+        if result_type == "webhook":
+            # For webhooks, show example webhook payload
+            return f"# Webhook endpoint expects {method.upper()} requests\n# Example webhook payload structure"
+
+        if not path:
+            return f"# {method.upper()} request"
+
+        # Simple curl example for operations
         if method.upper() == "GET":
             return f"curl -X {method.upper()} '{path}'"
         elif method.upper() in ["POST", "PUT", "PATCH"]:
@@ -732,6 +1187,9 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             if os.path.isabs(spec_path):
                 try:
                     spec_rel_path = os.path.relpath(spec_path, project_root)
+                    # Check if the relative path goes outside project root
+                    if spec_rel_path.startswith("../") or spec_rel_path == "..":
+                        return f"Error: Specification path is outside project root: {spec_path}"
                 except ValueError:
                     return f"Error: Specification path is outside project root: {spec_path}"
             else:

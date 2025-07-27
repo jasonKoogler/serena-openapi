@@ -1,0 +1,369 @@
+ProductCollection:
+  get:
+    tags:
+      - Products
+    summary: List Products
+    description: Retrieve a paginated list of products with filtering options
+    operationId: listProducts
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/page'
+      - $ref: '../components/parameters.yaml#/limit'
+      - $ref: '../components/parameters.yaml#/search'
+      - $ref: '../components/parameters.yaml#/category'
+      - $ref: '../components/parameters.yaml#/priceMin'
+      - $ref: '../components/parameters.yaml#/priceMax'
+      - $ref: '../components/parameters.yaml#/inStockOnly'
+      - $ref: '../components/parameters.yaml#/sortBy'
+      - $ref: '../components/parameters.yaml#/sortOrder'
+      - $ref: '../components/parameters.yaml#/includeDetails'
+    responses:
+      '200':
+        description: Successfully retrieved products
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ProductList'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  post:
+    tags:
+      - Products
+    summary: Create Product
+    description: Create a new product in the catalog
+    operationId: createProduct
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/ProductCreateRequest'
+    responses:
+      '201':
+        description: Product created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Product'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+ProductResource:
+  get:
+    tags:
+      - Products
+    summary: Get Product
+    description: Retrieve a specific product by ID
+    operationId: getProductById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/productId'
+      - $ref: '../components/parameters.yaml#/includeDetails'
+    responses:
+      '200':
+        description: Successfully retrieved product
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Product'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  put:
+    tags:
+      - Products
+    summary: Update Product
+    description: Update an existing product
+    operationId: updateProduct
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/productId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/ProductUpdateRequest'
+    responses:
+      '200':
+        description: Product updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Product'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  delete:
+    tags:
+      - Products
+    summary: Delete Product
+    description: Remove a product from the catalog
+    operationId: deleteProduct
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/productId'
+    responses:
+      '204':
+        description: Product deleted successfully
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+ProductReviews:
+  get:
+    tags:
+      - Products
+    summary: Get Product Reviews
+    description: Retrieve reviews for a specific product
+    operationId: getProductReviews
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/productId'
+      - $ref: '../components/parameters.yaml#/page'
+      - $ref: '../components/parameters.yaml#/limit'
+      - $ref: '../components/parameters.yaml#/sortBy'
+      - $ref: '../components/parameters.yaml#/sortOrder'
+    responses:
+      '200':
+        description: Successfully retrieved product reviews
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ReviewList'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  post:
+    tags:
+      - Products
+    summary: Create Product Review
+    description: Add a new review for a product
+    operationId: createProductReview
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/productId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - rating
+            properties:
+              rating:
+                type: integer
+                minimum: 1
+                maximum: 5
+                description: Rating from 1 to 5 stars
+                example: 4
+              title:
+                type: string
+                description: Review title
+                example: "Great product!"
+              comment:
+                type: string
+                description: Review comment
+                example: "Really satisfied with this purchase"
+    responses:
+      '201':
+        description: Review created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Review'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'

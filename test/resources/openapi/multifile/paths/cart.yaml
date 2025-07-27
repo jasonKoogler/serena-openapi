@@ -1,0 +1,263 @@
+CartResource:
+  get:
+    tags:
+      - Cart
+    summary: Get Shopping Cart
+    description: Retrieve the current user's shopping cart
+    operationId: getCart
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Successfully retrieved shopping cart
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/Cart'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  delete:
+    tags:
+      - Cart
+    summary: Clear Shopping Cart
+    description: Remove all items from the shopping cart
+    operationId: clearCart
+    security:
+      - BearerAuth: []
+    responses:
+      '204':
+        description: Shopping cart cleared successfully
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+CartItems:
+  post:
+    tags:
+      - Cart
+    summary: Add Item to Cart
+    description: Add a product to the shopping cart
+    operationId: addItemToCart
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/CartItemCreateRequest'
+    responses:
+      '201':
+        description: Item added to cart successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/CartItem'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  put:
+    tags:
+      - Cart
+    summary: Update Cart Item Quantity
+    description: Update the quantity of an item in the shopping cart
+    operationId: updateCartItemQuantity
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - productId
+              - quantity
+            properties:
+              productId:
+                type: string
+                format: uuid
+                description: Product ID
+                example: "456e7890-e89b-12d3-a456-426614174001"
+              quantity:
+                type: integer
+                minimum: 1
+                description: New quantity
+                example: 3
+    responses:
+      '200':
+        description: Cart item quantity updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/CartItem'
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '422':
+        description: Unprocessable Entity
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+
+  delete:
+    tags:
+      - Cart
+    summary: Remove Item from Cart
+    description: Remove a specific product from the shopping cart
+    operationId: removeItemFromCart
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - productId
+            properties:
+              productId:
+                type: string
+                format: uuid
+                description: Product ID to remove
+                example: "456e7890-e89b-12d3-a456-426614174001"
+    responses:
+      '204':
+        description: Item removed from cart successfully
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ValidationError'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '404':
+        description: Not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/common.yaml#/ErrorResponse'

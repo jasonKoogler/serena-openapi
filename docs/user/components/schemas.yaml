@@ -1,0 +1,889 @@
+# =============================================================================
+# USER API SCHEMAS
+# =============================================================================
+#
+# This file contains all schema definitions specific to the User API domain.
+# Schemas are organized by type and functionality.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ENUM TYPES
+# -----------------------------------------------------------------------------
+
+UserRoles:
+  type: string
+  enum: [admin, manager, employee, user, member]
+  description: Available user roles in the system
+
+UserStatus:
+  type: string
+  enum: [active, inactive, pending, suspended, archived]
+  description: User account status
+
+ThemeType:
+  type: string
+  enum: [light, dark, system]
+  description: User interface theme preference
+
+TimeFormat:
+  type: string
+  enum: [12h, 24h]
+  description: Time display format preference
+
+DigestFrequency:
+  type: string
+  enum: [none, daily, weekly]
+  description: Digest notification frequency
+
+# -----------------------------------------------------------------------------
+# CORE ENTITIES
+# -----------------------------------------------------------------------------
+
+User:
+  type: object
+  required:
+    - id
+    - email
+    - name
+    - role
+    - status
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the user
+    email:
+      type: string
+      format: email
+      description: User's email address
+    name:
+      type: string
+      description: User's full name
+    firstName:
+      type: string
+      description: User's first name (optional for backward compatibility)
+    lastName:
+      type: string
+      description: User's last name (optional for backward compatibility)
+    phone:
+      type: string
+      description: User's phone number
+    jobTitle:
+      type: string
+      description: User's job title
+    department:
+      type: string
+      description: User's department
+    role:
+      $ref: '#/UserRoles'
+      description: Primary/default role for the user
+    status:
+      $ref: '#/UserStatus'
+      description: Current user status
+    permissions:
+      type: array
+      items:
+        type: string
+      description: Default permissions (actual permissions are per-org)
+    lastLoginAt:
+      type: string
+      format: date-time
+      description: When the user last logged in
+    createdAt:
+      type: string
+      format: date-time
+      description: When the user account was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the user account was last updated
+
+# -----------------------------------------------------------------------------
+# REQUEST OBJECTS
+# -----------------------------------------------------------------------------
+
+UserCreateRequest:
+  type: object
+  required:
+    - email
+    - name
+    - role
+  properties:
+    email:
+      type: string
+      format: email
+      description: User's email address
+    name:
+      type: string
+      description: User's full name
+    firstName:
+      type: string
+      description: User's first name
+    lastName:
+      type: string
+      description: User's last name
+    phone:
+      type: string
+      description: User's phone number
+    jobTitle:
+      type: string
+      description: User's job title
+    department:
+      type: string
+      description: User's department
+    role:
+      $ref: '#/UserRoles'
+      description: Primary/default role for the user
+    permissions:
+      type: array
+      items:
+        type: string
+      description: Default permissions for the user
+
+UserUpdateRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+      description: User's email address
+    name:
+      type: string
+      description: User's full name
+    firstName:
+      type: string
+      description: User's first name
+    lastName:
+      type: string
+      description: User's last name
+    phone:
+      type: string
+      description: User's phone number
+    jobTitle:
+      type: string
+      description: User's job title
+    department:
+      type: string
+      description: User's department
+    role:
+      $ref: '#/UserRoles'
+      description: Primary/default role for the user
+    status:
+      $ref: '#/UserStatus'
+      description: User account status
+    permissions:
+      type: array
+      items:
+        type: string
+      description: Default permissions for the user
+
+# -----------------------------------------------------------------------------
+# RESPONSE OBJECTS
+# -----------------------------------------------------------------------------
+
+UserResponse:
+  allOf:
+    - $ref: '#/User'
+    - type: object
+      properties:
+        profile:
+          $ref: '#/UserProfile'
+          description: User profile information (if requested)
+        activity:
+          $ref: '#/UserActivity'
+          description: Recent user activity (if requested)
+
+UserList:
+  allOf:
+    - $ref: '../common.yaml#/PaginationResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/UserResponse'
+        summary:
+          $ref: '#/UserListSummary'
+
+UserListSummary:
+  type: object
+  description: User statistics summary
+  properties:
+    totalUsers:
+      type: integer
+      description: Total number of users
+    activeUsers:
+      type: integer
+      description: Number of active users
+    newUsersThisMonth:
+      type: integer
+      description: Number of users created this month
+    roleBreakdown:
+      type: object
+      description: Breakdown of users by role
+      additionalProperties:
+        type: integer
+
+# -----------------------------------------------------------------------------
+# PROFILE OBJECTS
+# -----------------------------------------------------------------------------
+
+UserProfile:
+  type: object
+  properties:
+    bio:
+      type: string
+      description: User biography or description
+    avatar:
+      type: string
+      format: uri
+      description: URL to user's profile picture
+    timezone:
+      type: string
+      description: User's timezone
+    locale:
+      type: string
+      description: User's locale preference
+    preferences:
+      $ref: '#/UserPreferences'
+    organizationRoles:
+      type: array
+      items:
+        $ref: '#/UserOrganizationRole'
+      description: User's roles in different organizations
+
+UserProfileUpdateRequest:
+  type: object
+  properties:
+    bio:
+      type: string
+      description: User biography or description
+    avatar:
+      type: string
+      format: uri
+      description: URL to user's profile picture
+    timezone:
+      type: string
+      description: User's timezone
+    locale:
+      type: string
+      description: User's locale preference
+
+UserOrganizationRole:
+  type: object
+  required:
+    - organizationId
+    - role
+  properties:
+    organizationId:
+      type: string
+      description: Organization identifier
+    organizationName:
+      type: string
+      description: Organization name
+    role:
+      $ref: '#/UserRoles'
+      description: User's role in this organization
+    permissions:
+      type: array
+      items:
+        type: string
+      description: User's permissions in this organization
+    joinedAt:
+      type: string
+      format: date-time
+      description: When the user joined this organization
+
+# -----------------------------------------------------------------------------
+# NOTIFICATION PREFERENCE OBJECTS
+# -----------------------------------------------------------------------------
+
+UserEmailNotificationPreferences:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+      description: Whether email notifications are enabled
+    newBookings:
+      type: boolean
+      description: Notifications for new bookings
+    bookingReminders:
+      type: boolean
+      description: Notifications for booking reminders
+    bookingChanges:
+      type: boolean
+      description: Notifications for booking changes
+    taskAssignments:
+      type: boolean
+      description: Notifications for task assignments
+    taskDeadlines:
+      type: boolean
+      description: Notifications for task deadlines
+    customerMessages:
+      type: boolean
+      description: Notifications for customer messages
+    orderUpdates:
+      type: boolean
+      description: Notifications for order updates
+    systemAlerts:
+      type: boolean
+      description: Notifications for system alerts
+    weeklyReports:
+      type: boolean
+      description: Notifications for weekly reports
+    marketingEmails:
+      type: boolean
+      description: Marketing email notifications
+    inventoryLowStock:
+      type: boolean
+      description: Notifications for low stock inventory
+    inventoryOutOfStock:
+      type: boolean
+      description: Notifications for out of stock inventory
+    inventoryReorderSuggestions:
+      type: boolean
+      description: Notifications for reorder suggestions
+
+UserPushNotificationPreferences:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+      description: Whether push notifications are enabled
+    newBookings:
+      type: boolean
+      description: Push notifications for new bookings
+    bookingReminders:
+      type: boolean
+      description: Push notifications for booking reminders
+    urgentTasks:
+      type: boolean
+      description: Push notifications for urgent tasks
+    customerMessages:
+      type: boolean
+      description: Push notifications for customer messages
+    systemAlerts:
+      type: boolean
+      description: Push notifications for system alerts
+    inventoryLowStock:
+      type: boolean
+      description: Push notifications for low stock inventory
+    inventoryOutOfStock:
+      type: boolean
+      description: Push notifications for out of stock inventory
+
+UserInAppNotificationPreferences:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+      description: Whether in-app notifications are enabled
+    sound:
+      type: boolean
+      description: Whether to play notification sounds
+    newBookings:
+      type: boolean
+      description: In-app notifications for new bookings
+    taskReminders:
+      type: boolean
+      description: In-app notifications for task reminders
+    mentions:
+      type: boolean
+      description: In-app notifications for mentions
+    systemNotifications:
+      type: boolean
+      description: In-app system notifications
+    inventoryAlerts:
+      type: boolean
+      description: In-app inventory alerts
+
+UserDigestPreferences:
+  type: object
+  properties:
+    frequency:
+      $ref: '#/DigestFrequency'
+      description: How often to send digest notifications
+    time:
+      type: string
+      description: Time for digest delivery
+    includeMetrics:
+      type: boolean
+      description: Include metrics in digest
+    includeTasks:
+      type: boolean
+      description: Include tasks in digest
+    includeBookings:
+      type: boolean
+      description: Include bookings in digest
+
+UserNotificationPreferences:
+  type: object
+  required:
+    - email
+    - push
+    - inApp
+    - digest
+  properties:
+    email:
+      $ref: '#/UserEmailNotificationPreferences'
+    push:
+      $ref: '#/UserPushNotificationPreferences'
+    inApp:
+      $ref: '#/UserInAppNotificationPreferences'
+    digest:
+      $ref: '#/UserDigestPreferences'
+
+# -----------------------------------------------------------------------------
+# USER PREFERENCE OBJECTS
+# -----------------------------------------------------------------------------
+
+UserPreferences:
+  type: object
+  required:
+    - theme
+    - language
+    - notifications
+  properties:
+    theme:
+      $ref: '#/ThemeType'
+      description: User's preferred theme
+    language:
+      type: string
+      description: User's preferred language
+    timezone:
+      type: string
+      description: User's timezone
+    dateFormat:
+      type: string
+      description: User's preferred date format
+    timeFormat:
+      $ref: '#/TimeFormat'
+      description: User's preferred time format
+    autoSave:
+      type: boolean
+      description: Whether to enable auto-save functionality
+    compactMode:
+      type: boolean
+      description: Whether to use compact UI mode
+    notifications:
+      $ref: '#/UserNotificationPreferences'
+
+# -----------------------------------------------------------------------------
+# UPDATE REQUEST OBJECTS
+# -----------------------------------------------------------------------------
+
+UserEmailNotificationPreferencesUpdateRequest:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+    newBookings:
+      type: boolean
+    bookingReminders:
+      type: boolean
+    bookingChanges:
+      type: boolean
+    taskAssignments:
+      type: boolean
+    taskDeadlines:
+      type: boolean
+    customerMessages:
+      type: boolean
+    orderUpdates:
+      type: boolean
+    systemAlerts:
+      type: boolean
+    weeklyReports:
+      type: boolean
+    marketingEmails:
+      type: boolean
+    inventoryLowStock:
+      type: boolean
+    inventoryOutOfStock:
+      type: boolean
+    inventoryReorderSuggestions:
+      type: boolean
+
+UserPushNotificationPreferencesUpdateRequest:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+    newBookings:
+      type: boolean
+    bookingReminders:
+      type: boolean
+    urgentTasks:
+      type: boolean
+    customerMessages:
+      type: boolean
+    systemAlerts:
+      type: boolean
+    inventoryLowStock:
+      type: boolean
+    inventoryOutOfStock:
+      type: boolean
+
+UserInAppNotificationPreferencesUpdateRequest:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+    sound:
+      type: boolean
+    newBookings:
+      type: boolean
+    taskReminders:
+      type: boolean
+    mentions:
+      type: boolean
+    systemNotifications:
+      type: boolean
+    inventoryAlerts:
+      type: boolean
+
+UserDigestPreferencesUpdateRequest:
+  type: object
+  properties:
+    frequency:
+      $ref: '#/DigestFrequency'
+    time:
+      type: string
+      description: Time for digest delivery
+    includeMetrics:
+      type: boolean
+    includeTasks:
+      type: boolean
+    includeBookings:
+      type: boolean
+
+UserNotificationPreferencesUpdateRequest:
+  type: object
+  properties:
+    email:
+      $ref: '#/UserEmailNotificationPreferencesUpdateRequest'
+    push:
+      $ref: '#/UserPushNotificationPreferencesUpdateRequest'
+    inApp:
+      $ref: '#/UserInAppNotificationPreferencesUpdateRequest'
+    digest:
+      $ref: '#/UserDigestPreferencesUpdateRequest'
+
+UserPreferencesUpdateRequest:
+  type: object
+  properties:
+    theme:
+      $ref: '#/ThemeType'
+      description: User's preferred theme
+    language:
+      type: string
+      description: User's preferred language
+    timezone:
+      type: string
+      description: User's timezone
+    dateFormat:
+      type: string
+      description: User's preferred date format
+    timeFormat:
+      $ref: '#/TimeFormat'
+      description: User's preferred time format
+    autoSave:
+      type: boolean
+      description: Whether to enable auto-save functionality
+    compactMode:
+      type: boolean
+      description: Whether to use compact UI mode
+    notifications:
+      $ref: '#/UserNotificationPreferencesUpdateRequest'
+
+# -----------------------------------------------------------------------------
+# ACTIVITY AND ANALYTICS OBJECTS
+# -----------------------------------------------------------------------------
+
+UserActivity:
+  type: object
+  properties:
+    recentLogins:
+      type: array
+      items:
+        $ref: '#/UserLoginEvent'
+      description: Recent login activities
+    recentActions:
+      type: array
+      items:
+        $ref: '#/UserActionEvent'
+      description: Recent user actions
+
+UserLoginEvent:
+  type: object
+  required:
+    - timestamp
+    - ipAddress
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+      description: When the login occurred
+    ipAddress:
+      type: string
+      description: IP address of the login
+    userAgent:
+      type: string
+      description: User agent string
+    location:
+      type: string
+      description: Geographic location (if available)
+    success:
+      type: boolean
+      description: Whether the login was successful
+
+UserActionEvent:
+  type: object
+  required:
+    - timestamp
+    - action
+    - resource
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+      description: When the action occurred
+    action:
+      type: string
+      description: Type of action performed
+    resource:
+      type: string
+      description: Resource that was acted upon
+    details:
+      type: object
+      additionalProperties: true
+      description: Additional action details
+
+# -----------------------------------------------------------------------------
+# ANALYTICS OBJECTS
+# -----------------------------------------------------------------------------
+
+UserAnalytics:
+  type: object
+  properties:
+    overview:
+      $ref: '#/UserAnalyticsOverview'
+    activity:
+      $ref: '#/UserActivityAnalytics'
+    performance:
+      $ref: '#/UserPerformanceMetrics'
+
+UserAnalyticsOverview:
+  type: object
+  properties:
+    totalUsers:
+      type: integer
+      description: Total number of users
+    activeUsers:
+      type: integer
+      description: Number of active users
+    newUsersThisMonth:
+      type: integer
+      description: New users added this month
+    userGrowthRate:
+      type: number
+      format: float
+      description: User growth rate percentage
+    averageSessionDuration:
+      type: integer
+      description: Average session duration in minutes
+
+UserActivityAnalytics:
+  type: object
+  properties:
+    dailyActiveUsers:
+      type: integer
+      description: Daily active users count
+    weeklyActiveUsers:
+      type: integer
+      description: Weekly active users count
+    monthlyActiveUsers:
+      type: integer
+      description: Monthly active users count
+    topActions:
+      type: array
+      items:
+        $ref: '#/UserActionStat'
+      description: Most performed actions
+
+UserActionStat:
+  type: object
+  required:
+    - action
+    - count
+  properties:
+    action:
+      type: string
+      description: Action name
+    count:
+      type: integer
+      description: Number of times performed
+    percentage:
+      type: number
+      format: float
+      description: Percentage of total actions
+
+UserPerformanceMetrics:
+  type: object
+  properties:
+    averageTaskCompletionTime:
+      type: integer
+      description: Average task completion time in minutes
+    bookingsManaged:
+      type: integer
+      description: Number of bookings managed
+    customerInteractions:
+      type: integer
+      description: Number of customer interactions
+    systemUsageHours:
+      type: number
+      format: float
+      description: Total system usage in hours
+
+# -----------------------------------------------------------------------------
+# BULK OPERATION OBJECTS
+# -----------------------------------------------------------------------------
+
+UserBulkOperationRequest:
+  type: object
+  required:
+    - operation
+    - userIds
+  properties:
+    operation:
+      type: string
+      enum: [activate, deactivate, suspend, delete, updateRole, updateDepartment]
+      description: Type of bulk operation to perform
+    userIds:
+      type: array
+      items:
+        type: string
+        format: uuid
+      description: List of user IDs to operate on
+    parameters:
+      type: object
+      additionalProperties: true
+      description: Operation-specific parameters
+    force:
+      type: boolean
+      default: false
+      description: Force operation even with validation warnings
+
+UserBulkOperationResponse:
+  type: object
+  required:
+    - operation
+    - totalRequested
+    - successful
+    - failed
+  properties:
+    operation:
+      type: string
+      description: Type of operation performed
+    totalRequested:
+      type: integer
+      description: Total number of users requested for operation
+    successful:
+      type: integer
+      description: Number of users successfully processed
+    failed:
+      type: integer
+      description: Number of users that failed processing
+    results:
+      type: array
+      items:
+        $ref: '#/UserBulkOperationResult'
+      description: Detailed results for each user
+    errors:
+      type: array
+      items:
+        $ref: '#/UserBulkOperationError'
+      description: Errors encountered during operation
+
+UserBulkOperationResult:
+  type: object
+  required:
+    - userId
+    - success
+  properties:
+    userId:
+      type: string
+      format: uuid
+      description: User ID
+    success:
+      type: boolean
+      description: Whether the operation was successful for this user
+    message:
+      type: string
+      description: Result message
+    updatedUser:
+      $ref: '#/User'
+      description: Updated user object (if successful)
+
+UserBulkOperationError:
+  type: object
+  required:
+    - userId
+    - error
+    - message
+  properties:
+    userId:
+      type: string
+      format: uuid
+      description: User ID that failed
+    error:
+      type: string
+      description: Error code
+    message:
+      type: string
+      description: Error message
+    details:
+      type: object
+      additionalProperties: true
+      description: Additional error details
+
+# -----------------------------------------------------------------------------
+# EXPORT OBJECTS
+# -----------------------------------------------------------------------------
+
+UserExportResponse:
+  type: object
+  required:
+    - format
+    - totalRecords
+    - exportedAt
+  properties:
+    format:
+      type: string
+      enum: [json, csv, xlsx]
+      description: Export format
+    totalRecords:
+      type: integer
+      description: Total number of records exported
+    exportedAt:
+      type: string
+      format: date-time
+      description: When the export was generated
+    downloadUrl:
+      type: string
+      format: uri
+      description: URL to download the exported file
+    expiresAt:
+      type: string
+      format: date-time
+      description: When the download URL expires
+    data:
+      type: array
+      items:
+        $ref: '#/User'
+      description: Exported user data (for JSON format)
+
+# =============================================================================
+# END OF USER API SCHEMAS
+# =============================================================================

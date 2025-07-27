@@ -1,0 +1,214 @@
+openapi: 3.1.1
+info:
+  title: Multi-File E-commerce API
+  description: A comprehensive e-commerce API demonstrating multi-file OpenAPI specifications with external references
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: API Team
+    email: api@ecommerce.example.com
+    url: https://example.com/support
+
+servers:
+  - url: https://api.ecommerce.example.com/v1
+    description: Production server
+  - url: https://staging-api.ecommerce.example.com/v1
+    description: Staging server
+
+tags:
+  - name: Users
+    description: User management operations
+  - name: Products
+    description: Product catalog operations
+  - name: Orders
+    description: Order management operations
+  - name: Cart
+    description: Shopping cart operations
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  # User Management Operations
+  /users:
+    $ref: './paths/users.yaml#/UserCollection'
+  
+  /users/{userId}:
+    $ref: './paths/users.yaml#/UserResource'
+  
+  /users/{userId}/profile:
+    $ref: './paths/users.yaml#/UserProfile'
+  
+  # Product Catalog Operations
+  /products:
+    $ref: './paths/products.yaml#/ProductCollection'
+  
+  /products/{productId}:
+    $ref: './paths/products.yaml#/ProductResource'
+  
+  /products/{productId}/reviews:
+    $ref: './paths/products.yaml#/ProductReviews'
+  
+  # Order Management Operations
+  /orders:
+    $ref: './paths/orders.yaml#/OrderCollection'
+  
+  /orders/{orderId}:
+    $ref: './paths/orders.yaml#/OrderResource'
+  
+  /orders/{orderId}/items:
+    $ref: './paths/orders.yaml#/OrderItems'
+  
+  # Shopping Cart Operations
+  /cart:
+    $ref: './paths/cart.yaml#/CartResource'
+  
+  /cart/items:
+    $ref: './paths/cart.yaml#/CartItems'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key authentication
+
+  parameters:
+    # Path Parameters
+    userId:
+      $ref: './components/parameters.yaml#/userId'
+    productId:
+      $ref: './components/parameters.yaml#/productId'
+    orderId:
+      $ref: './components/parameters.yaml#/orderId'
+
+    # Pagination Parameters
+    page:
+      $ref: './components/parameters.yaml#/page'
+    limit:
+      $ref: './components/parameters.yaml#/limit'
+
+    # Sorting Parameters
+    sortBy:
+      $ref: './components/parameters.yaml#/sortBy'
+    sortOrder:
+      $ref: './components/parameters.yaml#/sortOrder'
+
+    # Search and Filtering Parameters
+    search:
+      $ref: './components/parameters.yaml#/search'
+    category:
+      $ref: './components/parameters.yaml#/category'
+    status:
+      $ref: './components/parameters.yaml#/status'
+
+    # Inclusion Parameters
+    includeDetails:
+      $ref: './components/parameters.yaml#/includeDetails'
+
+  schemas:
+    # Core Entities
+    User:
+      $ref: './components/schemas.yaml#/User'
+    UserCreateRequest:
+      $ref: './components/schemas.yaml#/UserCreateRequest'
+    UserUpdateRequest:
+      $ref: './components/schemas.yaml#/UserUpdateRequest'
+    UserProfile:
+      $ref: './components/schemas.yaml#/UserProfile'
+
+    # Product Entities
+    Product:
+      $ref: './components/schemas.yaml#/Product'
+    ProductCreateRequest:
+      $ref: './components/schemas.yaml#/ProductCreateRequest'
+    ProductUpdateRequest:
+      $ref: './components/schemas.yaml#/ProductUpdateRequest'
+    Category:
+      $ref: './components/schemas.yaml#/Category'
+    Review:
+      $ref: './components/schemas.yaml#/Review'
+
+    # Order Entities
+    Order:
+      $ref: './components/schemas.yaml#/Order'
+    OrderCreateRequest:
+      $ref: './components/schemas.yaml#/OrderCreateRequest'
+    OrderUpdateRequest:
+      $ref: './components/schemas.yaml#/OrderUpdateRequest'
+    OrderItem:
+      $ref: './components/schemas.yaml#/OrderItem'
+
+    # Cart Entities
+    Cart:
+      $ref: './components/schemas.yaml#/Cart'
+    CartItem:
+      $ref: './components/schemas.yaml#/CartItem'
+    CartItemCreateRequest:
+      $ref: './components/schemas.yaml#/CartItemCreateRequest'
+
+    # Response Objects
+    UserList:
+      $ref: './components/schemas.yaml#/UserList'
+    ProductList:
+      $ref: './components/schemas.yaml#/ProductList'
+    OrderList:
+      $ref: './components/schemas.yaml#/OrderList'
+    ReviewList:
+      $ref: './components/schemas.yaml#/ReviewList'
+
+    # Supporting Entities
+    Address:
+      $ref: './components/schemas.yaml#/Address'
+    PaymentMethod:
+      $ref: './components/schemas.yaml#/PaymentMethod'
+    OrderStatusEvent:
+      $ref: './components/schemas.yaml#/OrderStatusEvent'
+
+    # Common Schemas
+    ErrorResponse:
+      $ref: './components/common.yaml#/ErrorResponse'
+    ValidationError:
+      $ref: './components/common.yaml#/ValidationError'
+    SuccessResponse:
+      $ref: './components/common.yaml#/SuccessResponse'
+    PaginationMeta:
+      $ref: './components/common.yaml#/PaginationMeta'
+    PaginationResponse:
+      $ref: './components/common.yaml#/PaginationResponse'
+
+webhooks:
+  orderStatusUpdate:
+    post:
+      summary: Order Status Update
+      description: Called when an order status changes
+      operationId: orderStatusWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './components/schemas.yaml#/OrderStatusEvent'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: './components/common.yaml#/SuccessResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: './components/common.yaml#/ErrorResponse'

@@ -1,0 +1,208 @@
+# =============================================================================
+# COMMON SCHEMAS FOR USER API
+# =============================================================================
+#
+# This file contains common schemas shared across user API endpoints,
+# including error responses, success responses, and pagination metadata.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ERROR RESPONSE SCHEMAS
+# -----------------------------------------------------------------------------
+
+ErrorResponse:
+  type: object
+  required:
+    - error
+    - message
+    - statusCode
+  properties:
+    error:
+      type: string
+      description: Error type or code
+    message:
+      type: string
+      description: Human-readable error message
+    statusCode:
+      type: integer
+      description: HTTP status code
+    details:
+      type: object
+      additionalProperties: true
+      description: Additional error details
+    timestamp:
+      type: string
+      format: date-time
+      description: When the error occurred
+    path:
+      type: string
+      description: API path where the error occurred
+
+ValidationError:
+  type: object
+  required:
+    - error
+    - message
+    - statusCode
+    - validationErrors
+  properties:
+    error:
+      type: string
+      enum: [VALIDATION_ERROR]
+      description: Error type
+    message:
+      type: string
+      description: Human-readable error message
+    statusCode:
+      type: integer
+      enum: [400]
+      description: HTTP status code
+    validationErrors:
+      type: array
+      items:
+        type: object
+        properties:
+          field:
+            type: string
+            description: Field that failed validation
+          message:
+            type: string
+            description: Validation error message
+          value:
+            description: Value that failed validation
+      description: Detailed validation errors
+    timestamp:
+      type: string
+      format: date-time
+      description: When the error occurred
+    path:
+      type: string
+      description: API path where the error occurred
+
+DomainError:
+  type: object
+  required:
+    - error
+    - message
+    - statusCode
+  properties:
+    error:
+      type: string
+      enum: [USER_NOT_FOUND, EMAIL_ALREADY_EXISTS, INVALID_ROLE, PERMISSION_DENIED]
+      description: User-specific error type
+    message:
+      type: string
+      description: Human-readable error message
+    statusCode:
+      type: integer
+      description: HTTP status code
+    details:
+      type: object
+      additionalProperties: true
+      description: Additional error details
+    timestamp:
+      type: string
+      format: date-time
+      description: When the error occurred
+
+# -----------------------------------------------------------------------------
+# SUCCESS RESPONSE SCHEMAS
+# -----------------------------------------------------------------------------
+
+SuccessResponse:
+  type: object
+  required:
+    - success
+    - message
+  properties:
+    success:
+      type: boolean
+      enum: [true]
+      description: Indicates successful operation
+    message:
+      type: string
+      description: Success message
+    data:
+      type: object
+      additionalProperties: true
+      description: Additional response data
+    timestamp:
+      type: string
+      format: date-time
+      description: When the operation completed
+
+# -----------------------------------------------------------------------------
+# PAGINATION SCHEMAS
+# -----------------------------------------------------------------------------
+
+PaginationMeta:
+  type: object
+  required:
+    - page
+    - limit
+    - total
+    - hasMore
+  properties:
+    page:
+      type: integer
+      minimum: 1
+      description: Current page number
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 100
+      description: Number of items per page
+    total:
+      type: integer
+      minimum: 0
+      description: Total number of items
+    hasMore:
+      type: boolean
+      description: Whether there are more pages available
+    totalPages:
+      type: integer
+      minimum: 0
+      description: Total number of pages
+
+PaginationResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      description: Response data items
+    meta:
+      $ref: '#/PaginationMeta'
+
+# -----------------------------------------------------------------------------
+# AUDIT AND METADATA SCHEMAS
+# -----------------------------------------------------------------------------
+
+AuditInfo:
+  type: object
+  properties:
+    createdAt:
+      type: string
+      format: date-time
+      description: When the resource was created
+    updatedAt:
+      type: string
+      format: date-time
+      description: When the resource was last updated
+    createdBy:
+      type: string
+      description: ID of user who created the resource
+    updatedBy:
+      type: string
+      description: ID of user who last updated the resource
+    version:
+      type: integer
+      minimum: 1
+      description: Resource version for optimistic locking
+
+# =============================================================================
+# END OF COMMON SCHEMAS
+# =============================================================================

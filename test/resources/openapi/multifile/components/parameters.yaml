@@ -1,0 +1,206 @@
+# =============================================================================
+# COMMON PARAMETERS FOR E-COMMERCE API
+# =============================================================================
+#
+# This file contains reusable parameter definitions for the E-commerce API.
+# Parameters are organized by category for easy reference and maintenance.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PATH PARAMETERS
+# -----------------------------------------------------------------------------
+
+userId:
+  name: userId
+  in: path
+  description: User ID
+  required: true
+  schema:
+    type: string
+    format: uuid
+    example: "123e4567-e89b-12d3-a456-426614174000"
+
+productId:
+  name: productId
+  in: path
+  description: Product ID
+  required: true
+  schema:
+    type: string
+    format: uuid
+    example: "456e7890-e89b-12d3-a456-426614174001"
+
+orderId:
+  name: orderId
+  in: path
+  description: Order ID
+  required: true
+  schema:
+    type: string
+    format: uuid
+    example: "789e0123-e89b-12d3-a456-426614174002"
+
+# -----------------------------------------------------------------------------
+# PAGINATION PARAMETERS
+# -----------------------------------------------------------------------------
+
+page:
+  name: page
+  in: query
+  description: Page number for pagination
+  required: false
+  schema:
+    type: integer
+    minimum: 1
+    default: 1
+    example: 1
+
+limit:
+  name: limit
+  in: query
+  description: Number of items per page
+  required: false
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+    example: 20
+
+# -----------------------------------------------------------------------------
+# SORTING PARAMETERS
+# -----------------------------------------------------------------------------
+
+sortBy:
+  name: sortBy
+  in: query
+  description: Field to sort by
+  required: false
+  schema:
+    type: string
+    enum: [name, email, createdAt, updatedAt, price, rating]
+    default: createdAt
+  example: name
+
+sortOrder:
+  name: sortOrder
+  in: query
+  description: Sort order
+  required: false
+  schema:
+    type: string
+    enum: [asc, desc]
+    default: asc
+  example: asc
+
+# -----------------------------------------------------------------------------
+# SEARCH AND FILTERING PARAMETERS
+# -----------------------------------------------------------------------------
+
+search:
+  name: search
+  in: query
+  description: Search in names, descriptions, and other text fields
+  required: false
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 100
+  example: "wireless headphones"
+
+category:
+  name: category
+  in: query
+  description: Filter by category
+  required: false
+  schema:
+    type: string
+  example: "Electronics"
+
+status:
+  name: status
+  in: query
+  description: Filter by status
+  required: false
+  schema:
+    type: string
+    enum: [active, inactive, pending, processing, shipped, delivered, cancelled]
+  example: active
+
+# -----------------------------------------------------------------------------
+# INCLUSION PARAMETERS
+# -----------------------------------------------------------------------------
+
+includeDetails:
+  name: includeDetails
+  in: query
+  description: Include detailed information in the response
+  required: false
+  schema:
+    type: boolean
+    default: false
+  example: true
+
+# -----------------------------------------------------------------------------
+# DATE FILTERING PARAMETERS
+# -----------------------------------------------------------------------------
+
+createdAfter:
+  name: createdAfter
+  in: query
+  description: Filter items created after this date
+  required: false
+  schema:
+    type: string
+    format: date-time
+  example: "2024-01-01T00:00:00Z"
+
+createdBefore:
+  name: createdBefore
+  in: query
+  description: Filter items created before this date
+  required: false
+  schema:
+    type: string
+    format: date-time
+  example: "2024-12-31T23:59:59Z"
+
+# -----------------------------------------------------------------------------
+# PRICE FILTERING PARAMETERS (Product-specific)
+# -----------------------------------------------------------------------------
+
+priceMin:
+  name: priceMin
+  in: query
+  description: Minimum price filter
+  required: false
+  schema:
+    type: number
+    format: float
+    minimum: 0
+  example: 10.00
+
+priceMax:
+  name: priceMax
+  in: query
+  description: Maximum price filter
+  required: false
+  schema:
+    type: number
+    format: float
+    minimum: 0
+  example: 500.00
+
+inStockOnly:
+  name: inStockOnly
+  in: query
+  description: Filter to show only products in stock
+  required: false
+  schema:
+    type: boolean
+    default: false
+
+# =============================================================================
+# END OF COMMON PARAMETERS
+# =============================================================================
