@@ -34,6 +34,8 @@ dependencies = [
   "tqdm>=4.67.1",
   "tiktoken>=0.9.0",
   "anthropic>=0.54.0",
+  "sentence-transformers>=2.2.0",
+  "faiss-cpu>=1.7.0",
 ]
 
 [[tool.uv.index]]
@@ -260,6 +262,7 @@ markers = [
   "elixir: language server running for Elixir",
   "terraform: language server running for Terraform",
   "snapshot: snapshot tests for symbolic editing operations",
+  "openapi: OpenAPI specification processing and semantic search",
 ]
 
 [tool.codespell]

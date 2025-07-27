@@ -455,6 +455,343 @@ class ProjectCommands(AutoRegisteringGroup):
         print(f"Symbols saved to {ls.cache_path}")
 
 
+class OpenApiCommands(AutoRegisteringGroup):
+    """Group for 'openapi' subcommands."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="openapi",
+            help="Manage OpenAPI specifications and semantic search. You can run `serena openapi <command> --help` for more info on each command.",
+        )
+
+    @staticmethod
+    @click.command("index", help="Index an OpenAPI specification for semantic search.")
+    @click.argument("spec_path", type=click.Path(exists=True))
+    @click.option("--project", type=PROJECT_TYPE, default=None, help="Project to index for (defaults to current directory)")
+    @click.option("--rebuild", is_flag=True, help="Rebuild existing index")
+    @click.option(
+        "--log-level",
+        type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+        default="INFO",
+        help="Log level for indexing",
+    )
+    def index(spec_path: str, project: str | None, rebuild: bool, log_level: str) -> None:
+        """Index an OpenAPI specification for semantic search."""
+        import os
+
+        from serena.agent import SerenaAgent
+        from serena.config.context_mode import SerenaAgentContext, SerenaAgentMode
+        from serena.config.serena_config import SerenaConfig
+        from serena.tools.openapi_tools import OpenApiTool
+
+        # Set up logging
+        lvl = logging.getLevelNamesMapping()[log_level.upper()]
+        logging.configure(level=lvl)
+
+        # Determine project path
+        if project:
+            if os.path.isdir(project):
+                project_path = os.path.abspath(project)
+            else:
+                # Try to find project by name
+                config = SerenaConfig.get_instance()
+                found_project = None
+                for p in config.projects:
+                    if p.project_name == project:
+                        found_project = p.project_root
+                        break
+                if not found_project:
+                    click.echo(f"Project '{project}' not found. Available projects: {[p.project_name for p in config.projects]}")
+                    return
+                project_path = found_project
+        else:
+            project_path = os.getcwd()
+
+        # Create agent with minimal setup
+        context = SerenaAgentContext.load("agent")  # Use default context
+        modes = [SerenaAgentMode.load("one-shot")]  # Use minimal mode
+        agent = SerenaAgent(
+            project=project_path,
+            serena_config=SerenaConfig(web_dashboard=False, log_level=lvl),
+            context=context,
+            modes=modes,
+        )
+
+        # Create and use the OpenAPI tool
+        tool = OpenApiTool(agent)
+
+        # Convert spec_path to absolute path
+        if not os.path.isabs(spec_path):
+            spec_path = os.path.abspath(spec_path)
+
+        click.echo(f"Indexing OpenAPI specification: {spec_path}")
+        click.echo(f"Project: {project_path}")
+
+        try:
+            # Index the specification (this will build the index)
+            result = tool.apply(spec_path, "test query", rebuild_index=rebuild)
+
+            # Check if indexing was successful
+            if result.startswith("Error"):
+                click.echo(f"Error: {result}")
+                return
+
+            click.echo("✅ OpenAPI specification indexed successfully!")
+            click.echo(f"Cache location: {tool.cache_dir}")
+
+        except Exception as e:
+            click.echo(f"Error indexing specification: {e}")
+
+    @staticmethod
+    @click.command("search", help="Search OpenAPI specification using natural language.")
+    @click.argument("query", type=str)
+    @click.option("--spec-path", type=click.Path(exists=True), default=None, help="Path to OpenAPI spec")
+    @click.option("--project", type=PROJECT_TYPE, default=None, help="Project containing the OpenAPI spec")
+    @click.option("--top-k", type=int, default=3, help="Number of results to return")
+    @click.option(
+        "--log-level",
+        type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+        default="WARNING",
+        help="Log level for search",
+    )
+    def search(query: str, spec_path: str | None, project: str | None, top_k: int, log_level: str) -> None:
+        """Search OpenAPI specification using natural language."""
+        import os
+
+        from serena.agent import SerenaAgent
+        from serena.config.context_mode import SerenaAgentContext, SerenaAgentMode
+        from serena.config.serena_config import SerenaConfig
+        from serena.tools.openapi_tools import OpenApiTool
+
+        # Set up logging
+        lvl = logging.getLevelNamesMapping()[log_level.upper()]
+        logging.configure(level=lvl)
+
+        # Determine project path
+        if project:
+            if os.path.isdir(project):
+                project_path = os.path.abspath(project)
+            else:
+                # Try to find project by name
+                config = SerenaConfig.get_instance()
+                found_project = None
+                for p in config.projects:
+                    if p.project_name == project:
+                        found_project = p.project_root
+                        break
+                if not found_project:
+                    click.echo(f"Project '{project}' not found. Available projects: {[p.project_name for p in config.projects]}")
+                    return
+                project_path = found_project
+        else:
+            project_path = os.getcwd()
+
+        # Determine spec path
+        if not spec_path:
+            # Try to auto-discover OpenAPI specs in the project
+            common_names = [
+                "openapi.yaml",
+                "openapi.yml",
+                "openapi.json",
+                "swagger.yaml",
+                "swagger.yml",
+                "swagger.json",
+                "api.yaml",
+                "api.yml",
+                "api.json",
+            ]
+            for name in common_names:
+                potential_path = os.path.join(project_path, name)
+                if os.path.exists(potential_path):
+                    spec_path = potential_path
+                    break
+
+            if not spec_path:
+                click.echo(
+                    "No OpenAPI specification found. Please specify --spec-path or ensure an OpenAPI file exists in the project root."
+                )
+                click.echo(f"Looked for: {', '.join(common_names)}")
+                return
+
+        # Create agent with minimal setup
+        context = SerenaAgentContext.load("agent")  # Use default context
+        modes = [SerenaAgentMode.load("one-shot")]  # Use minimal mode
+        agent = SerenaAgent(
+            project=project_path,
+            serena_config=SerenaConfig(web_dashboard=False, log_level=lvl),
+            context=context,
+            modes=modes,
+        )
+
+        # Create and use the OpenAPI tool
+        tool = OpenApiTool(agent)
+
+        # Convert spec_path to absolute path if needed
+        if not os.path.isabs(spec_path):
+            spec_path = os.path.abspath(spec_path)
+
+        click.echo(f"Searching in: {spec_path}")
+        click.echo(f"Query: {query}")
+        click.echo("─" * 50)
+
+        try:
+            # Perform the search
+            result = tool.apply(spec_path, query, top_k=top_k)
+
+            # Display results
+            click.echo(result)
+
+        except Exception as e:
+            click.echo(f"Error searching specification: {e}")
+
+    @staticmethod
+    @click.command("list", help="List OpenAPI specifications in the current project.")
+    @click.option("--project", type=PROJECT_TYPE, default=None, help="Project to list specs for (defaults to current directory)")
+    @click.option(
+        "--log-level",
+        type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+        default="WARNING",
+        help="Log level",
+    )
+    def list_specs(project: str | None, log_level: str) -> None:
+        """List OpenAPI specifications in the current project."""
+        import os
+
+        from serena.agent import SerenaAgent
+        from serena.config.context_mode import SerenaAgentContext, SerenaAgentMode
+        from serena.config.serena_config import SerenaConfig
+        from serena.tools.openapi_tools import OpenApiTool
+
+        # Set up logging
+        lvl = logging.getLevelNamesMapping()[log_level.upper()]
+        logging.configure(level=lvl)
+
+        # Determine project path
+        if project:
+            if os.path.isdir(project):
+                project_path = os.path.abspath(project)
+            else:
+                # Try to find project by name
+                config = SerenaConfig.get_instance()
+                found_project = None
+                for p in config.projects:
+                    if p.project_name == project:
+                        found_project = p.project_root
+                        break
+                if not found_project:
+                    click.echo(f"Project '{project}' not found. Available projects: {[p.project_name for p in config.projects]}")
+                    return
+                project_path = found_project
+        else:
+            project_path = os.getcwd()
+
+        # Create agent with minimal setup
+        context = SerenaAgentContext.load("agent")
+        modes = [SerenaAgentMode.load("one-shot")]
+        agent = SerenaAgent(
+            project=project_path,
+            serena_config=SerenaConfig(web_dashboard=False, log_level=lvl),
+            context=context,
+            modes=modes,
+        )
+
+        # Create and use the OpenAPI tool
+        tool = OpenApiTool(agent)
+
+        try:
+            # List specifications
+            specs = tool.list_project_specs()
+
+            if not specs:
+                click.echo("No OpenAPI specifications found.")
+                click.echo("Common file names to look for: openapi.yaml, swagger.json, api.yaml")
+                return
+
+            click.echo(f"Found {len(specs)} OpenAPI specification(s):")
+            for i, spec in enumerate(specs, 1):
+                # Show relative path if within project
+                try:
+                    rel_path = os.path.relpath(spec, project_path)
+                    if not rel_path.startswith(".."):
+                        click.echo(f"  {i}. {rel_path}")
+                    else:
+                        click.echo(f"  {i}. {spec}")
+                except ValueError:
+                    click.echo(f"  {i}. {spec}")
+
+        except Exception as e:
+            click.echo(f"Error listing specifications: {e}")
+
+    @staticmethod
+    @click.command("search-all", help="Search across all OpenAPI specifications in the project.")
+    @click.argument("query", type=str)
+    @click.option("--project", type=PROJECT_TYPE, default=None, help="Project containing the OpenAPI specs")
+    @click.option("--top-k", type=int, default=5, help="Number of results to return")
+    @click.option(
+        "--log-level",
+        type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+        default="WARNING",
+        help="Log level for search",
+    )
+    def search_all_specs(query: str, project: str | None, top_k: int, log_level: str) -> None:
+        """Search across all OpenAPI specifications in the project."""
+        import os
+
+        from serena.agent import SerenaAgent
+        from serena.config.context_mode import SerenaAgentContext, SerenaAgentMode
+        from serena.config.serena_config import SerenaConfig
+        from serena.tools.openapi_tools import OpenApiTool
+
+        # Set up logging
+        lvl = logging.getLevelNamesMapping()[log_level.upper()]
+        logging.configure(level=lvl)
+
+        # Determine project path
+        if project:
+            if os.path.isdir(project):
+                project_path = os.path.abspath(project)
+            else:
+                # Try to find project by name
+                config = SerenaConfig.get_instance()
+                found_project = None
+                for p in config.projects:
+                    if p.project_name == project:
+                        found_project = p.project_root
+                        break
+                if not found_project:
+                    click.echo(f"Project '{project}' not found. Available projects: {[p.project_name for p in config.projects]}")
+                    return
+                project_path = found_project
+        else:
+            project_path = os.getcwd()
+
+        # Create agent with minimal setup
+        context = SerenaAgentContext.load("agent")
+        modes = [SerenaAgentMode.load("one-shot")]
+        agent = SerenaAgent(
+            project=project_path,
+            serena_config=SerenaConfig(web_dashboard=False, log_level=lvl),
+            context=context,
+            modes=modes,
+        )
+
+        # Create and use the OpenAPI tool
+        tool = OpenApiTool(agent)
+
+        click.echo(f"Searching across all OpenAPI specifications for: {query}")
+        click.echo("─" * 50)
+
+        try:
+            # Search all specifications
+            result = tool.apply(spec_path=None, query=query, top_k=top_k, search_all_specs=True)
+
+            # Display results
+            click.echo(result)
+
+        except Exception as e:
+            click.echo(f"Error searching specifications: {e}")
+
+
 class ToolCommands(AutoRegisteringGroup):
     """Group for 'tool' subcommands."""
 
@@ -482,6 +819,7 @@ context = ContextCommands()
 project = ProjectCommands()
 config = SerenaConfigCommands()
 tools = ToolCommands()
+openapi = OpenApiCommands()
 
 # Expose toplevel commands for the same reason
 top_level = TopLevelCommands()
@@ -489,7 +827,7 @@ start_mcp_server = top_level.start_mcp_server
 index_project = project.index_deprecated
 
 # needed for the help script to work - register all subcommands to the top-level group
-for subgroup in (mode, context, project, config, tools):
+for subgroup in (mode, context, project, config, tools, openapi):
     top_level.add_command(subgroup)
 
 

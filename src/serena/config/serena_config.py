@@ -41,6 +41,26 @@ T = TypeVar("T")
 DEFAULT_TOOL_TIMEOUT: float = 240
 
 
+@dataclass
+class OpenApiConfig:
+    """Configuration for OpenAPI specification processing and semantic search."""
+
+    embedding_model: str = "all-MiniLM-L6-v2"
+    """The sentence transformer model to use for generating embeddings."""
+
+    index_cache_dir: str = ".serena/openapi_cache"
+    """Directory (relative to project root) where OpenAPI indices are cached."""
+
+    max_chunk_size: int = 1000
+    """Maximum size of text chunks for embedding generation."""
+
+    redocly_timeout: int = 30
+    """Timeout in seconds for Redocly CLI operations."""
+
+    use_redocly_validation: bool = True
+    """Whether to use Redocly CLI for OpenAPI validation when available."""
+
+
 @singleton
 class SerenaPaths:
     """
@@ -167,6 +187,8 @@ class ProjectConfig(ToolInclusionDefinition, ToStringMixin):
     ignore_all_files_in_gitignore: bool = True
     initial_prompt: str = ""
     encoding: str = DEFAULT_ENCODING
+    openapi_specs: list[str] = field(default_factory=list)
+    """List of paths to OpenAPI specifications (relative to project root)"""
 
     SERENA_DEFAULT_PROJECT_FILE = "project.yml"
 
@@ -338,6 +360,10 @@ class SerenaConfig(ToolInclusionDefinition, ToStringMixin):
     jetbrains: bool = False
     """
     whether to apply JetBrains mode
+    """
+    openapi: OpenApiConfig = field(default_factory=OpenApiConfig)
+    """
+    OpenAPI configuration for specification processing and semantic search
     """
     record_tool_usage_stats: bool = False
     """Whether to record tool usage statistics, they will be shown in the web dashboard if recording is active. 
