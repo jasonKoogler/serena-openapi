@@ -1,0 +1,467 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Simple Blog API",
+    "description": "A basic blog management API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.blog.com/v1",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/posts": {
+      "get": {
+        "operationId": "listPosts",
+        "summary": "List blog posts",
+        "description": "Get a list of all blog posts with pagination",
+        "tags": ["posts", "content"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number for pagination",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query", 
+            "description": "Number of posts per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          },
+          {
+            "name": "author",
+            "in": "query",
+            "description": "Filter posts by author",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of posts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Post"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPost",
+        "summary": "Create new post",
+        "description": "Create a new blog post",
+        "tags": ["posts", "authoring"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPost"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid post data"
+          }
+        }
+      }
+    },
+    "/posts/{postId}": {
+      "get": {
+        "operationId": "getPost",
+        "summary": "Get post by ID",
+        "description": "Retrieve a specific blog post by its ID",
+        "tags": ["posts"],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the post to retrieve",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updatePost",
+        "summary": "Update post",
+        "description": "Update an existing blog post",
+        "tags": ["posts", "authoring"],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the post to update",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPost"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePost",
+        "summary": "Delete post",
+        "description": "Delete a blog post",
+        "tags": ["posts", "authoring"],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the post to delete",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Post deleted successfully"
+          },
+          "404": {
+            "description": "Post not found"
+          }
+        }
+      }
+    },
+    "/authors": {
+      "get": {
+        "operationId": "listAuthors",
+        "summary": "List authors",
+        "description": "Get a list of all blog authors",
+        "tags": ["authors"],
+        "responses": {
+          "200": {
+            "description": "List of authors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Author"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/comments": {
+      "post": {
+        "operationId": "createComment",
+        "summary": "Add comment",
+        "description": "Add a comment to a blog post",
+        "tags": ["comments", "interaction"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewComment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/posts/{postId}/comments": {
+      "get": {
+        "operationId": "getPostComments",
+        "summary": "Get post comments",
+        "description": "Retrieve all comments for a specific post",
+        "tags": ["comments", "posts"],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the post",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Comment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Post": {
+        "type": "object",
+        "required": ["id", "title", "content", "author"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique post identifier"
+          },
+          "title": {
+            "type": "string",
+            "description": "Post title"
+          },
+          "content": {
+            "type": "string",
+            "description": "Post content in markdown"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author's name"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Publication date"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update date"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Post tags"
+          },
+          "published": {
+            "type": "boolean",
+            "description": "Whether the post is published"
+          }
+        }
+      },
+      "NewPost": {
+        "type": "object",
+        "required": ["title", "content", "author"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Post title"
+          },
+          "content": {
+            "type": "string",
+            "description": "Post content in markdown"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author's name"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Post tags"
+          },
+          "published": {
+            "type": "boolean",
+            "description": "Whether to publish immediately",
+            "default": false
+          }
+        }
+      },
+      "Author": {
+        "type": "object",
+        "required": ["name", "email"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Author's full name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Author's email"
+          },
+          "bio": {
+            "type": "string",
+            "description": "Author's biography"
+          },
+          "avatar": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to author's avatar"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "required": ["id", "postId", "author", "content"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique comment identifier"
+          },
+          "postId": {
+            "type": "string",
+            "description": "ID of the post this comment belongs to"
+          },
+          "author": {
+            "type": "string",
+            "description": "Comment author's name"
+          },
+          "content": {
+            "type": "string",
+            "description": "Comment content"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Comment creation date"
+          }
+        }
+      },
+      "NewComment": {
+        "type": "object",
+        "required": ["postId", "author", "content"],
+        "properties": {
+          "postId": {
+            "type": "string",
+            "description": "ID of the post to comment on"
+          },
+          "author": {
+            "type": "string",
+            "description": "Comment author's name"
+          },
+          "content": {
+            "type": "string",
+            "description": "Comment content"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of items per page"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items"
+          },
+          "totalPages": {
+            "type": "integer",
+            "description": "Total number of pages"
+          }
+        }
+      }
+    }
+  }
+}

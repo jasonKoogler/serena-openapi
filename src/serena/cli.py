@@ -548,13 +548,29 @@ class OpenApiCommands(AutoRegisteringGroup):
     @click.option("--spec-path", type=click.Path(exists=True), default=None, help="Path to OpenAPI spec")
     @click.option("--project", type=PROJECT_TYPE, default=None, help="Project containing the OpenAPI spec")
     @click.option("--top-k", type=int, default=3, help="Number of results to return")
+    @click.option("--output-format", type=click.Choice(["human", "json", "markdown"]), default="human", help="Output format")
+    @click.option("--include-examples", is_flag=True, help="Include code examples in output")
+    @click.option("--method", type=str, default=None, help="Filter by HTTP method (GET, POST, PUT, DELETE, etc.)")
+    @click.option("--path-filter", type=str, default=None, help="Filter by path pattern (supports regex)")
+    @click.option("--tags", multiple=True, help="Filter by tags (can specify multiple)")
     @click.option(
         "--log-level",
         type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
         default="WARNING",
         help="Log level for search",
     )
-    def search(query: str, spec_path: str | None, project: str | None, top_k: int, log_level: str) -> None:
+    def search(
+        query: str,
+        spec_path: str | None,
+        project: str | None,
+        top_k: int,
+        output_format: str,
+        include_examples: bool,
+        method: str | None,
+        path_filter: str | None,
+        tags: tuple[str, ...],
+        log_level: str,
+    ) -> None:
         """Search OpenAPI specification using natural language."""
         import os
 
@@ -636,7 +652,17 @@ class OpenApiCommands(AutoRegisteringGroup):
 
         try:
             # Perform the search
-            result = tool.apply(spec_path, query, top_k=top_k)
+            tags_list = list(tags) if tags else None
+            result = tool.apply(
+                spec_path=spec_path,
+                query=query,
+                top_k=top_k,
+                output_format=output_format,
+                include_examples=include_examples,
+                method_filter=method,
+                path_filter=path_filter,
+                tags_filter=tags_list,
+            )
 
             # Display results
             click.echo(result)
@@ -727,13 +753,28 @@ class OpenApiCommands(AutoRegisteringGroup):
     @click.argument("query", type=str)
     @click.option("--project", type=PROJECT_TYPE, default=None, help="Project containing the OpenAPI specs")
     @click.option("--top-k", type=int, default=5, help="Number of results to return")
+    @click.option("--output-format", type=click.Choice(["human", "json", "markdown"]), default="human", help="Output format")
+    @click.option("--include-examples", is_flag=True, help="Include code examples in output")
+    @click.option("--method", type=str, default=None, help="Filter by HTTP method (GET, POST, PUT, DELETE, etc.)")
+    @click.option("--path-filter", type=str, default=None, help="Filter by path pattern (supports regex)")
+    @click.option("--tags", multiple=True, help="Filter by tags (can specify multiple)")
     @click.option(
         "--log-level",
         type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
         default="WARNING",
         help="Log level for search",
     )
-    def search_all_specs(query: str, project: str | None, top_k: int, log_level: str) -> None:
+    def search_all_specs(
+        query: str,
+        project: str | None,
+        top_k: int,
+        output_format: str,
+        include_examples: bool,
+        method: str | None,
+        path_filter: str | None,
+        tags: tuple[str, ...],
+        log_level: str,
+    ) -> None:
         """Search across all OpenAPI specifications in the project."""
         import os
 
@@ -783,7 +824,18 @@ class OpenApiCommands(AutoRegisteringGroup):
 
         try:
             # Search all specifications
-            result = tool.apply(spec_path=None, query=query, top_k=top_k, search_all_specs=True)
+            tags_list = list(tags) if tags else None
+            result = tool.apply(
+                spec_path=None,
+                query=query,
+                top_k=top_k,
+                search_all_specs=True,
+                output_format=output_format,
+                include_examples=include_examples,
+                method_filter=method,
+                path_filter=path_filter,
+                tags_filter=tags_list,
+            )
 
             # Display results
             click.echo(result)

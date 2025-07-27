@@ -65,6 +65,11 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
         top_k: int = 3,
         rebuild_index: bool = False,
         search_all_specs: bool = False,
+        output_format: str = "human",
+        include_examples: bool = False,
+        method_filter: str | None = None,
+        path_filter: str | None = None,
+        tags_filter: list[str] | None = None,
     ) -> str:
         """
         Search OpenAPI specification using natural language query.
@@ -76,6 +81,11 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             top_k: Number of top results to return
             rebuild_index: Whether to rebuild the search index
             search_all_specs: If True, search across all project OpenAPI specs
+            output_format: Output format - "human", "json", or "markdown"
+            include_examples: Whether to include code examples in output
+            method_filter: Filter by HTTP method (GET, POST, PUT, DELETE, etc.)
+            path_filter: Filter by path pattern (supports regex)
+            tags_filter: Filter by tags (endpoints must have at least one matching tag)
 
         Returns:
             Formatted text with relevant API endpoints and usage instructions
@@ -104,8 +114,8 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
                         log.info(f"Building/rebuilding index for {spec_file}")
                         self._build_index(spec_file, index_dir)
 
-                    # Perform semantic search
-                    results = self._semantic_search(query, index_dir, top_k)
+                    # Perform semantic search with filters
+                    results = self._semantic_search(query, index_dir, top_k, method_filter, path_filter, tags_filter)
 
                     # Add spec path to results metadata
                     for result in results:
@@ -129,7 +139,7 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
                 result["rank"] = i + 1
 
             # Format results for LLM consumption
-            return self._format_results(top_results, query, len(specs_to_search) > 1)
+            return self._format_results(top_results, query, len(specs_to_search) > 1, output_format, include_examples)
 
         except Exception as e:
             log.exception(f"Error in OpenAPI semantic search: {e}")
@@ -157,13 +167,15 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             # If search_all_specs is True, get all configured specs
             if search_all_specs:
                 try:
-                    project_config = self.agent.get_active_project().project_config
-                    for spec_rel_path in project_config.openapi_specs:
-                        spec_abs_path = os.path.join(project_root, spec_rel_path)
-                        if os.path.exists(spec_abs_path):
-                            specs.append(spec_abs_path)
-                        else:
-                            log.warning(f"Configured OpenAPI spec not found: {spec_abs_path}")
+                    project = self.agent.get_active_project()
+                    if project is not None:
+                        project_config = project.project_config
+                        for spec_rel_path in project_config.openapi_specs:
+                            spec_abs_path = os.path.join(project_root, spec_rel_path)
+                            if os.path.exists(spec_abs_path):
+                                specs.append(spec_abs_path)
+                            else:
+                                log.warning(f"Configured OpenAPI spec not found: {spec_abs_path}")
                 except Exception as e:
                     log.warning(f"Could not load project configuration: {e}")
 
@@ -442,15 +454,90 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
         log.info(f"Built search index with {len(chunks)} chunks at {index_dir}")
 
-    def _semantic_search(self, query: str, index_dir: str, k: int) -> list[dict[str, Any]]:
+    def _semantic_search(
+        self,
+        query: str,
+        index_dir: str,
+        k: int,
+        method_filter: str | None = None,
+        path_filter: str | None = None,
+        tags_filter: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Perform semantic search using the cached index."""
+        import re
+
         # Load index and chunks
         index = faiss.read_index(os.path.join(index_dir, "index.faiss"))
 
         with open(os.path.join(index_dir, "chunks.json")) as f:
             chunks = json.load(f)
 
-        # Generate query embedding
+        # Apply filters to chunks before search
+        if method_filter or path_filter or tags_filter:
+            filtered_indices = []
+            for idx, chunk in enumerate(chunks):
+                metadata = chunk["metadata"]
+
+                # Method filter
+                if method_filter and metadata["method"].upper() != method_filter.upper():
+                    continue
+
+                # Path filter (regex support)
+                if path_filter:
+                    try:
+                        if not re.search(path_filter, metadata["path"]):
+                            continue
+                    except re.error:
+                        # Fallback to simple string matching if regex is invalid
+                        if path_filter not in metadata["path"]:
+                            continue
+
+                # Tags filter (at least one tag must match)
+                if tags_filter:
+                    endpoint_tags = [tag.lower() for tag in metadata.get("tags", [])]
+                    filter_tags = [tag.lower() for tag in tags_filter]
+                    if not any(tag in endpoint_tags for tag in filter_tags):
+                        continue
+
+                filtered_indices.append(idx)
+
+            if not filtered_indices:
+                return []
+
+            # Create filtered index if we have filters
+            if len(filtered_indices) < len(chunks):
+                # Get embeddings for filtered chunks
+                all_embeddings = []
+                for idx in range(len(chunks)):
+                    embedding = index.reconstruct(idx)
+                    all_embeddings.append(embedding)
+
+                filtered_embeddings = np.array([all_embeddings[idx] for idx in filtered_indices]).astype("float32")
+
+                # Create new index with filtered embeddings
+                filtered_index = faiss.IndexFlatIP(filtered_embeddings.shape[1])
+                filtered_index.add(filtered_embeddings)
+
+                # Search filtered index
+                query_embedding = self.model.encode([query], convert_to_tensor=False)
+                query_embedding = np.array(query_embedding).astype("float32")
+                faiss.normalize_L2(query_embedding)
+
+                distances, indices = filtered_index.search(query_embedding, min(k, len(filtered_indices)))
+
+                # Map back to original indices and return results
+                results = []
+                for i, (distance, idx) in enumerate(zip(distances[0], indices[0], strict=False)):
+                    if idx < len(filtered_indices):
+                        original_idx = filtered_indices[idx]
+                        result = chunks[original_idx].copy()
+                        result["score"] = float(distance)
+                        result["rank"] = i + 1
+                        results.append(result)
+
+                return results
+
+        # No filters, use original search
         query_embedding = self.model.encode([query], convert_to_tensor=False)
         query_embedding = np.array(query_embedding).astype("float32")
         faiss.normalize_L2(query_embedding)
@@ -469,8 +556,26 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
         return results
 
-    def _format_results(self, results: list[dict[str, Any]], query: str, multi_spec: bool = False) -> str:
+    def _format_results(
+        self,
+        results: list[dict[str, Any]],
+        query: str,
+        multi_spec: bool = False,
+        output_format: str = "human",
+        include_examples: bool = False,
+    ) -> str:
         """Format search results for LLM consumption."""
+        if output_format == "json":
+            return self._format_results_json(results, query, multi_spec, include_examples)
+        elif output_format == "markdown":
+            return self._format_results_markdown(results, query, multi_spec, include_examples)
+        else:
+            return self._format_results_human(results, query, multi_spec, include_examples)
+
+    def _format_results_human(
+        self, results: list[dict[str, Any]], query: str, multi_spec: bool = False, include_examples: bool = False
+    ) -> str:
+        """Format search results in human-readable format."""
         output = [f"Found {len(results)} relevant API endpoints for query: '{query}'\\n"]
 
         for result in results:
@@ -493,6 +598,11 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
             if metadata.get("tags"):
                 output.append(f"Tags: {', '.join(metadata['tags'])}")
 
+            if include_examples:
+                example = self._generate_code_example(metadata)
+                if example:
+                    output.append(f"Example:\\n{example}")
+
             output.append("")  # Empty line between results
 
         output.append(
@@ -501,10 +611,95 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
 
         return "\\n".join(output)
 
+    def _format_results_json(
+        self, results: list[dict[str, Any]], query: str, multi_spec: bool = False, include_examples: bool = False
+    ) -> str:
+        """Format search results in JSON format."""
+        formatted_results = []
+
+        for result in results:
+            metadata = result["metadata"]
+            formatted_result = {
+                "rank": result["rank"],
+                "score": result["score"],
+                "operationId": metadata["operationId"],
+                "method": metadata["method"],
+                "path": metadata["path"],
+                "summary": metadata.get("summary", ""),
+                "description": metadata.get("description", ""),
+                "tags": metadata.get("tags", []),
+            }
+
+            if multi_spec and "spec_file" in result:
+                formatted_result["specification"] = os.path.basename(result["spec_file"])
+
+            if include_examples:
+                example = self._generate_code_example(metadata)
+                if example:
+                    formatted_result["example"] = example
+
+            formatted_results.append(formatted_result)
+
+        return json.dumps({"query": query, "total_results": len(results), "results": formatted_results}, indent=2)
+
+    def _format_results_markdown(
+        self, results: list[dict[str, Any]], query: str, multi_spec: bool = False, include_examples: bool = False
+    ) -> str:
+        """Format search results in Markdown format."""
+        output = ["# API Search Results\\n", f"**Query:** {query}\\n", f"**Results:** {len(results)} endpoints found\\n"]
+
+        for result in results:
+            metadata = result["metadata"]
+            output.append(f"## {result['rank']}. {metadata['operationId']}")
+            output.append(f"**Score:** {result['score']:.3f}\\n")
+            output.append(f"**Method:** `{metadata['method']}`")
+            output.append(f"**Path:** `{metadata['path']}`\\n")
+
+            if multi_spec and "spec_file" in result:
+                spec_name = os.path.basename(result["spec_file"])
+                output.append(f"**Specification:** {spec_name}\\n")
+
+            if metadata.get("summary"):
+                output.append(f"**Summary:** {metadata['summary']}\\n")
+
+            if metadata.get("description"):
+                output.append(f"**Description:** {metadata['description']}\\n")
+
+            if metadata.get("tags"):
+                tags_formatted = ", ".join([f"`{tag}`" for tag in metadata["tags"]])
+                output.append(f"**Tags:** {tags_formatted}\\n")
+
+            if include_examples:
+                example = self._generate_code_example(metadata)
+                if example:
+                    output.append(f"**Example:**\\n```bash\\n{example}\\n```\\n")
+
+            output.append("---\\n")
+
+        return "\\n".join(output)
+
+    def _generate_code_example(self, metadata: dict[str, Any]) -> str:
+        """Generate a code example for the API endpoint."""
+        method = metadata["method"]
+        path = metadata["path"]
+
+        # Simple curl example
+        if method.upper() == "GET":
+            return f"curl -X {method.upper()} '{path}'"
+        elif method.upper() in ["POST", "PUT", "PATCH"]:
+            return f"curl -X {method.upper()} '{path}' \\\\\n  -H 'Content-Type: application/json' \\\\\n  -d '{{\"data\": \"example\"}}'"
+        elif method.upper() == "DELETE":
+            return f"curl -X {method.upper()} '{path}'"
+        else:
+            return f"curl -X {method.upper()} '{path}'"
+
     def list_project_specs(self) -> list[str]:
         """List all OpenAPI specifications configured for the current project."""
         try:
             project = self.agent.get_active_project()
+            if project is None:
+                return self._auto_discover_specs(os.getcwd())
+
             project_root = project.project_root
 
             # Get configured specs
@@ -528,6 +723,9 @@ class OpenApiTool(Tool, ToolMarkerDoesNotRequireActiveProject):
         """Add an OpenAPI specification to the current project configuration."""
         try:
             project = self.agent.get_active_project()
+            if project is None:
+                return "Error: No active project. Cannot add specification to project configuration."
+
             project_root = project.project_root
 
             # Convert to relative path
